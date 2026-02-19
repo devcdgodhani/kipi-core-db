@@ -20,6 +20,12 @@ export class WsJwtGuard implements CanActivate {
             // Attach user to socket
             client.data.user = payload;
 
+            // Join user and organization rooms for targeted events
+            client.join(`user:${payload.sub}`);
+            if (payload.currentOrgId) {
+                client.join(`org:${payload.currentOrgId}`);
+            }
+
             return true;
         } catch (err) {
             throw new WsException('Invalid authentication token');
