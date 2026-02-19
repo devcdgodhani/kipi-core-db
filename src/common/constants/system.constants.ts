@@ -2,7 +2,8 @@
  * System-wide constants for JusticeLynk
  */
 export const SYSTEM_CONSTANTS = {
-  API_PREFIX: 'api/v1',
+  API_PREFIX: 'api',
+  // API_PREFIX: 'api/v1',
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
   BCRYPT_ROUNDS: 12,
