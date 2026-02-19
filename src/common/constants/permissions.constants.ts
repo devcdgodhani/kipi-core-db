@@ -16,15 +16,22 @@ export const FEATURE_KEYS = {
   CHAT_SEND: 'chat.send',
   CHAT_READ: 'chat.read',
   CHAT_DELETE: 'chat.delete',
-  // Documents
-  DOCS_UPLOAD: 'documents.upload',
-  DOCS_DOWNLOAD: 'documents.download',
-  DOCS_DELETE: 'documents.delete',
+  // Organizations
+  ORG_VIEW: 'organizations.view',
+  ORG_MANAGE: 'organizations.manage',
   // Team
   TEAM_INVITE: 'team.invite',
   TEAM_REMOVE: 'team.remove',
   TEAM_VIEW: 'team.view',
+  TEAM_UPDATE: 'team.update',
+  TEAM_DELETE: 'team.delete',
   TEAM_MANAGE_ROLES: 'team.manage_roles',
+  // Roles & Permissions
+  ROLES_VIEW: 'roles.view',
+  ROLES_MANAGE: 'roles.manage',
+  // Subscription
+  SUB_VIEW: 'subscription.view',
+  SUB_MANAGE: 'subscription.manage',
   // Billing
   BILLING_VIEW: 'billing.view',
   BILLING_MANAGE: 'billing.manage',
@@ -32,9 +39,18 @@ export const FEATURE_KEYS = {
   ANALYTICS_VIEW: 'analytics.view',
   // Professionals
   PROFESSIONALS_VIEW: 'professionals.view',
+  PROFESSIONALS_MANAGE: 'professionals.manage',
   PROFESSIONALS_HIRE: 'professionals.hire',
   // Audit
   AUDIT_VIEW: 'audit.view',
+  // Notifications
+  NOTIFICATIONS_VIEW: 'notifications.view',
+  NOTIFICATIONS_MANAGE: 'notifications.manage',
+  // Admin
+  ADMIN_VIEW: 'admin.view',
+  ADMIN_MANAGE: 'admin.manage',
+  // Security
+  SECURITY_MANAGE: 'security.manage',
 } as const;
 
 /**
@@ -48,6 +64,13 @@ export const ACTION_KEYS = {
   MANAGE: 'manage',
   EXPORT: 'export',
   IMPORT: 'import',
+  ASSIGN: 'assign',
+  CLOSE: 'close',
+  SEND: 'send',
+  UPLOAD: 'upload',
+  DOWNLOAD: 'download',
+  INVITE: 'invite',
+  HIRE: 'hire',
 } as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[keyof typeof MODULE_KEYS];

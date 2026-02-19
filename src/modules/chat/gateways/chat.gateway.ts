@@ -4,11 +4,15 @@ import {
   ConnectedSocket, WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { Logger } from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../../database/prisma.service';
 import { SOCKET_EVENTS, SOCKET_ROOMS } from '../../../common/constants/socket-events.constants';
+import { WsJwtGuard } from '../../../common/guards/ws-jwt.guard';
+import { AuditService } from '../../audit/services/audit.service';
+import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/permissions.constants';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;
@@ -25,6 +29,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private jwtService: JwtService,
     private configService: ConfigService,
     private prisma: PrismaService,
+    private auditService: AuditService,
   ) {}
 
   async handleConnection(client: AuthenticatedSocket) {
@@ -52,24 +57,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.JOIN_ROOM)
   async handleJoinRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
     client.join(SOCKET_ROOMS.case(data.caseId));
     client.emit(SOCKET_EVENTS.JOINED, { room: data.caseId });
   }
 
+  @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.LEAVE_ROOM)
   async handleLeaveRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
     client.leave(SOCKET_ROOMS.case(data.caseId));
   }
 
+  @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.SEND_MESSAGE)
   async handleMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string; content: string; type?: string; metadata?: any }) {
-    if (!client.userId) throw new WsException('Not authenticated');
+    const user = (client as any).data.user;
+    if (!user?.sub) throw new WsException('Not authenticated');
+
     const message = await this.prisma.caseMessage.create({
-      data: { caseId: data.caseId, senderId: client.userId, content: data.content },
+      data: { caseId: data.caseId, senderId: user.sub, content: data.content },
       include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } },
     });
+
+    // Log to audit
+    await this.auditService.log({
+      userId: user.sub,
+      orgId: user.currentOrgId || '',
+      module: MODULE_KEYS.CHAT,
+      action: ACTION_KEYS.SEND,
+      entityType: 'case_message',
+      entityId: message.id
+    });
+
     this.server.to(SOCKET_ROOMS.case(data.caseId)).emit(SOCKET_EVENTS.NEW_MESSAGE, message);
     return message;
   }

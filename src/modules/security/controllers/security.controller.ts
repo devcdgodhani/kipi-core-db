@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus,
+  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SecurityService } from '../services/security.service';
@@ -8,6 +8,10 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
 import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { PermissionGuard } from '../../../common/guards/permissions.guard';
+import { Audit } from '../../../common/decorators/audit.decorator';
+import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
+import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 
 class DisableMfaDto {
   @ApiProperty({ description: 'Current password for confirmation' }) @IsString() password: string;
@@ -15,6 +19,7 @@ class DisableMfaDto {
 
 @ApiTags('Security')
 @ApiBearerAuth('accessToken')
+  @UseGuards(PermissionGuard)
 @Controller({ path: 'security', version: '1' })
 export class SecurityController {
   constructor(private securityService: SecurityService) {}
@@ -28,6 +33,7 @@ export class SecurityController {
 
   @Post('mfa/disable')
   @HttpCode(HttpStatus.OK)
+  @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.SECURITY })
   @ApiOperation({ summary: 'Disable MFA (requires current password)' })
   async disableMfa(@CurrentUser() user: JwtPayload, @Body() dto: DisableMfaDto) {
     const result = await this.securityService.disableMfa(user.sub, dto.password);
@@ -36,6 +42,7 @@ export class SecurityController {
 
   @Post('mfa/backup-codes/regenerate')
   @HttpCode(HttpStatus.OK)
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.SECURITY })
   @ApiOperation({ summary: 'Regenerate MFA backup codes' })
   async regenerateBackupCodes(@CurrentUser() user: JwtPayload) {
     const result = await this.securityService.regenerateBackupCodes(user.sub);
@@ -50,6 +57,7 @@ export class SecurityController {
   }
 
   @Delete('sessions/:sessionId')
+  @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.SECURITY })
   @ApiOperation({ summary: 'Revoke a specific session' })
   async revokeSession(@Param('sessionId') sessionId: string, @CurrentUser() user: JwtPayload) {
     const result = await this.securityService.revokeSession(user.sub, sessionId);
@@ -58,6 +66,7 @@ export class SecurityController {
 
   @Delete('sessions/all')
   @HttpCode(HttpStatus.OK)
+  @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.SECURITY })
   @ApiOperation({ summary: 'Revoke all sessions (sign out everywhere)' })
   async revokeAllSessions(@CurrentUser() user: JwtPayload) {
     const result = await this.securityService.revokeAllSessions(user.sub);

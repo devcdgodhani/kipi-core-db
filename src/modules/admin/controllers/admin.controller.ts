@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Patch, Delete, Body, Param, Query,
+  Controller, Get, Patch, Delete, Body, Param, Query, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../../database/prisma.service';
@@ -7,15 +7,22 @@ import { Roles } from '../../../common/decorators/roles.decorator';
 import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { successResponse } from '../../../common/utils/response.util';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
+import { PermissionGuard } from '../../../common/guards/permissions.guard';
+import { Permission } from '../../../common/decorators/permission.decorator';
+import { Audit } from '../../../common/decorators/audit.decorator';
+import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
+import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 
 @ApiTags('Admin')
 @ApiBearerAuth('accessToken')
 @Roles(SYSTEM_ROLES.SUPER_ADMIN)
+  @UseGuards(PermissionGuard)
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
   constructor(private prisma: PrismaService) { }
 
   @Get('stats')
+  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'Get platform-wide statistics' })
   async getStats() {
     const [users, organizations, cases, professionals, revenue] = await Promise.all([
@@ -29,6 +36,7 @@ export class AdminController {
   }
 
   @Get('users')
+  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all platform users' })
   async listUsers(@Query('page') page = 1, @Query('limit') limit = 20, @Query('search') search?: string, @Query('isActive') isActive?: string) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
@@ -43,6 +51,8 @@ export class AdminController {
   }
 
   @Patch('users/:id/status')
+  @Permission(FEATURE_KEYS.ADMIN_MANAGE)
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ADMIN })
   @ApiOperation({ summary: 'Activate or deactivate a user' })
   async toggleUserStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
     const user = await this.prisma.user.update({ where: { id }, data: { isActive } });
@@ -50,6 +60,7 @@ export class AdminController {
   }
 
   @Get('organizations')
+  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all organizations' })
   async listOrgs(@Query('page') page = 1, @Query('limit') limit = 20, @Query('search') search?: string) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
@@ -67,6 +78,7 @@ export class AdminController {
   }
 
   @Get('professionals/pending')
+  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List professionals pending verification' })
   async getPendingVerifications(@Query('page') page = 1, @Query('limit') limit = 20) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
@@ -82,6 +94,7 @@ export class AdminController {
   }
 
   @Get('revenue')
+  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'Get revenue breakdown by year' })
   async getRevenue(@Query('year') year = new Date().getFullYear()) {
     const payments = await this.prisma.payment.findMany({

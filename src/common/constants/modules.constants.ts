@@ -15,6 +15,7 @@ export const MODULE_KEYS = {
   ROLES: 'roles',
   SUBSCRIPTION: 'subscription',
   SECURITY: 'security',
+  ORGANIZATIONS: 'organizations',
 } as const;
 
 export type ModuleKey = (typeof MODULE_KEYS)[keyof typeof MODULE_KEYS];

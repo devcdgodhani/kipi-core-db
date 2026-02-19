@@ -1,20 +1,24 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuditService } from '../services/audit.service';
-import { Roles } from '../../../common/decorators/roles.decorator';
 import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { OrgId } from '../../../common/decorators/org-id.decorator';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
+import { PermissionGuard } from '../../../common/guards/permissions.guard';
+import { Permission } from '../../../common/decorators/permission.decorator';
+import { FEATURE_KEYS } from '../../../common/constants/permissions.constants';
 
 @ApiTags('Audit')
 @ApiBearerAuth('accessToken')
+  @UseGuards(PermissionGuard)
 @Controller({ path: 'audit', version: '1' })
 export class AuditController {
   constructor(private auditService: AuditService) { }
 
   @Get()
+  @Permission(FEATURE_KEYS.AUDIT_VIEW)
   @ApiOperation({ summary: 'Get audit logs (super admin sees all, org admin sees org logs)' })
   async findAll(
     @CurrentUser() user: JwtPayload,

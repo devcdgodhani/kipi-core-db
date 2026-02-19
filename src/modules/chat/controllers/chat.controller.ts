@@ -1,16 +1,21 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../../database/prisma.service';
 import { successResponse } from '../../../common/utils/response.util';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
+import { PermissionGuard } from '../../../common/guards/permissions.guard';
+import { Permission } from '../../../common/decorators/permission.decorator';
+import { FEATURE_KEYS } from '../../../common/constants/permissions.constants';
 
 @ApiTags('Chat')
 @ApiBearerAuth('accessToken')
+  @UseGuards(PermissionGuard)
 @Controller({ path: 'chat', version: '1' })
 export class ChatController {
   constructor(private prisma: PrismaService) {}
 
   @Get('messages')
+  @Permission(FEATURE_KEYS.CHAT_READ)
   @ApiOperation({ summary: 'Get chat message history for a case (REST fallback)' })
   async getMessages(
     @Query('caseId') caseId: string,

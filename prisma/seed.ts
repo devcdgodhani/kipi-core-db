@@ -30,70 +30,102 @@ async function main() {
   });
   console.log(`✅ Super Admin: ${superAdmin.email}`);
 
-  // ── Create Modules ────────────────────────────────────────
+  // ── Create Modules, Features, & Actions from Constants ────────
   const moduleData = [
     { key: 'cases', name: 'Case Management', description: 'Manage legal cases' },
-    { key: 'organizations', name: 'Organizations', description: 'Manage organizations and members' },
+    { key: 'organizations', name: 'Organizations', description: 'Manage organizations' },
     { key: 'billing', name: 'Billing', description: 'Subscription and payments' },
     { key: 'chat', name: 'Chat & Messaging', description: 'Real-time messaging' },
     { key: 'documents', name: 'Documents', description: 'Case document management' },
-    { key: 'reports', name: 'Reports & Analytics', description: 'Analytics and reporting' },
+    { key: 'analytics', name: 'Reports & Analytics', description: 'Analytics and reporting' },
     { key: 'audit', name: 'Audit Logs', description: 'System audit trails' },
+    { key: 'professionals', name: 'Professionals', description: 'Manage professionals' },
+    { key: 'admin', name: 'Administration', description: 'Platform administration' },
+    { key: 'roles', name: 'Roles & Permissions', description: 'Manage roles' },
+    { key: 'subscription', name: 'Subscriptions', description: 'Manage plans' },
+    { key: 'security', name: 'Security', description: 'MFA and security settings' },
+  ];
+
+  const actionData = [
+    { key: 'create', name: 'Create' },
+    { key: 'read', name: 'Read' },
+    { key: 'update', name: 'Update' },
+    { key: 'delete', name: 'Delete' },
+    { key: 'manage', name: 'Manage' },
+    { key: 'export', name: 'Export' },
+    { key: 'import', name: 'Import' },
+    { key: 'assign', name: 'Assign' },
+    { key: 'close', name: 'Close' },
+    { key: 'send', name: 'Send' },
+    { key: 'upload', name: 'Upload' },
+    { key: 'download', name: 'Download' },
+    { key: 'invite', name: 'Invite' },
+    { key: 'hire', name: 'Hire' },
   ];
 
   for (const mod of moduleData) {
-    await prisma.module.upsert({
+    const upsertedModule = await prisma.module.upsert({
       where: { key: mod.key },
-      update: {},
+      update: { name: mod.name, description: mod.description },
       create: { ...mod, isActive: true },
     });
+
+    // Create a generic feature for the module if it doesn't have specific ones
+    const featureKey = `${mod.key}.main`;
+    const feature = await prisma.feature.upsert({
+      where: { key: featureKey },
+      update: { name: `${mod.name} Main` },
+      create: {
+        key: featureKey,
+        name: `${mod.name} Main`,
+        moduleId: upsertedModule.id,
+      },
+    });
+
+    // Seed actions for this feature
+    for (const action of actionData) {
+      await prisma.action.upsert({
+        where: { featureId_key: { featureId: feature.id, key: action.key } },
+        update: { name: action.name },
+        create: {
+          key: action.key,
+          name: action.name,
+          featureId: feature.id,
+            }
+        });
+    }
   }
-  console.log(`✅ Created ${moduleData.length} modules`);
+  console.log(`✅ Created modules, features, and actions`);
 
   // ── Create Subscription Plans ─────────────────────────────
-  const plans = [
-    {
-      name: 'Starter',
-      slug: 'starter',
-      description: 'For individuals and solo lawyers',
-      price: 0,
-      billingInterval: 'monthly',
-      trialDays: 14,
-      isActive: true,
-      isPublic: true,
-    },
-    {
-      name: 'Professional',
-      slug: 'professional',
-      description: 'For small law firms and legal professionals',
-      price: 2999,
-      billingInterval: 'monthly',
-      trialDays: 7,
-      isActive: true,
-      isPublic: true,
-    },
-    {
-      name: 'Enterprise',
-      slug: 'enterprise',
-      description: 'For large organizations and enterprises',
-      price: 9999,
-      billingInterval: 'monthly',
-      trialDays: 0,
-      isActive: true,
-      isPublic: true,
-    },
+  // ... (plans logic remains, but we add mapping later)
+  const plansData = [
+    { name: 'Starter', slug: 'starter', description: 'For individuals and solo lawyers', price: 0, billingInterval: 'monthly', trialDays: 14, isActive: true, isPublic: true },
+    { name: 'Professional', slug: 'professional', description: 'For small law firms', price: 2999, billingInterval: 'monthly', trialDays: 7, isActive: true, isPublic: true },
+    { name: 'Enterprise', slug: 'enterprise', description: 'For large organizations', price: 9999, billingInterval: 'monthly', trialDays: 0, isActive: true, isPublic: true },
   ];
 
-  for (const plan of plans) {
-    await prisma.subscriptionPlan.upsert({
+  for (const plan of plansData) {
+    const upsertedPlan = await prisma.subscriptionPlan.upsert({
       where: { slug: plan.slug },
       update: {},
       create: plan as any,
     });
-  }
-  console.log(`✅ Created ${plans.length} subscription plans`);
 
-  // ── Create System Roles ───────────────────────────────────
+    // Attach all modules to the plan for seeding purposes
+    // In production, this would be specific per plan
+    const allModules = await prisma.module.findMany();
+    for (const mod of allModules) {
+      await prisma.planModule.upsert({
+        where: { planId_moduleId: { planId: upsertedPlan.id, moduleId: mod.id } },
+        update: {},
+        create: { planId: upsertedPlan.id, moduleId: mod.id }
+      });
+    }
+  }
+  console.log(`✅ Created subscription plans and module associations`);
+
+  // ── Create System Roles & Permissions Automation ──────────
   const roles = [
     { name: 'Super Admin', slug: 'super_admin', description: 'Full platform access', isSystem: true },
     { name: 'Org Admin', slug: 'org_admin', description: 'Organization administrator', isSystem: true },
@@ -101,12 +133,32 @@ async function main() {
     { name: 'Lawyer', slug: 'lawyer', description: 'Legal professional', isSystem: true },
     { name: 'Client', slug: 'client', description: 'End client', isSystem: true },
   ];
-  for (const role of roles) {
-    await prisma.role.upsert({
-      where: { orgId_slug: { orgId: null, slug: role.slug } },
-      update: {},
-      create: { ...role, orgId: null },
+
+  const allFeatures = await prisma.feature.findMany({ include: { actions: true } });
+
+  for (const roleDef of roles) {
+    const role = await prisma.role.upsert({
+      where: { orgId_slug: { orgId: null, slug: roleDef.slug } },
+      update: { name: roleDef.name, description: roleDef.description },
+      create: { ...roleDef, orgId: null },
     });
+
+    // Auto-map ALL existing features and actions to every role
+    // Default: Super Admin gets all granted: true, others granted: false
+    for (const feature of allFeatures) {
+      for (const action of feature.actions) {
+        await prisma.rolePermission.upsert({
+          where: { roleId_featureId_actionId: { roleId: role.id, featureId: feature.id, actionId: action.id } },
+          update: {},
+              create: {
+                roleId: role.id,
+                featureId: feature.id,
+                actionId: action.id,
+                granted: role.slug === 'super_admin', // Only super admin gets everything enabled by default
+              }
+            });
+      }
+    }
   }
 
   console.log(`✅ Created ${roles.length} system roles`);

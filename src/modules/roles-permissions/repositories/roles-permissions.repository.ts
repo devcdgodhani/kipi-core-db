@@ -1,14 +1,48 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class RolesPermissionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  async createRole(data: { name: string; description?: string; orgId: string; isSystem?: boolean }) {
-    const slug = data.name.toLowerCase().replace(/\s+/g, '_');
-    return this.prisma.role.create({ data: { ...data, slug } });
+  async createRole(data: { name: string; description?: string; orgId?: string; isSystem?: boolean; slug?: string }) {
+    const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '_');
+    const role = await this.prisma.role.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        orgId: data.orgId || null,
+        isSystem: data.isSystem || false,
+        slug,
+      },
+    });
+
+    // Auto-seed permissions for new role (granted: false by default)
+    const allFeatures = await this.prisma.feature.findMany({
+      include: { actions: true },
+    });
+
+    if (allFeatures.length > 0) {
+      const permissionData = [];
+      for (const feature of allFeatures) {
+        for (const action of feature.actions) {
+          permissionData.push({
+            roleId: role.id,
+            featureId: feature.id,
+            actionId: action.id,
+            granted: data.isSystem ? slug === 'super_admin' : false,
+          });
+        }
+      }
+
+      if (permissionData.length > 0) {
+        await this.prisma.rolePermission.createMany({
+          data: permissionData,
+        });
+      }
+    }
+
+    return role;
   }
 
   async findRoleById(id: string) {
@@ -30,12 +64,22 @@ export class RolesPermissionsRepository {
     });
   }
 
-  async setRolePermissions(roleId: string, actionIds: string[]) {
-    // Clear and reset
-    await this.prisma.rolePermission.deleteMany({ where: { roleId } });
-    const actions = await this.prisma.action.findMany({ where: { id: { in: actionIds } } });
-    const records = actions.map((a) => ({ roleId, featureId: a.featureId, actionId: a.id }));
-    return this.prisma.rolePermission.createMany({ data: records });
+  async setRolePermissions(roleId: string, permissionIds: { featureId: string; actionId: string }[]) {
+    // First, set all to false
+    await this.prisma.rolePermission.updateMany({
+      where: { roleId },
+      data: { granted: false },
+    });
+
+    // Then set specific ones to true
+    for (const perm of permissionIds) {
+      await this.prisma.rolePermission.updateMany({
+        where: { roleId, featureId: perm.featureId, actionId: perm.actionId },
+        data: { granted: true },
+      });
+    }
+
+    return { success: true };
   }
 
   async assignUserRole(data: { userId: string; roleId: string; orgId: string }) {

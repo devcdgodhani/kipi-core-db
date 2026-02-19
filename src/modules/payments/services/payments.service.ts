@@ -2,7 +2,7 @@ import {
   Injectable, BadRequestException, NotFoundException, Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Razorpay from 'razorpay';
+import Razorpay = require('razorpay');
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import { AuditService } from '../../audit/services/audit.service';
@@ -24,10 +24,10 @@ export class PaymentsService {
     private notificationsService: NotificationsService,
   ) {
     this.razorpay = new Razorpay({
-      key_id: this.configService.get<string>('payment.razorpayKeyId'),
-      key_secret: this.configService.get<string>('payment.razorpayKeySecret'),
+      key_id: this.configService.get<string>('payment.razorpay.keyId'),
+      key_secret: this.configService.get<string>('payment.razorpay.keySecret'),
     });
-    this.webhookSecret = this.configService.get<string>('payment.razorpayWebhookSecret');
+    this.webhookSecret = this.configService.get<string>('payment.razorpay.webhookSecret');
   }
 
   async createOrder(orgId: string, planId: string, userId: string) {

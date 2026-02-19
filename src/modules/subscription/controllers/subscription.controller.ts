@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Patch, Body, Param, HttpCode, HttpStatus,
+  Controller, Get, Post, Patch, Body, Param, HttpCode, HttpStatus, UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString, IsNumber, IsOptional, IsEnum, Min, IsInt } from 'class-validator';
@@ -13,6 +13,11 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { Roles } from '../../../common/decorators/roles.decorator';
 import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { successResponse } from '../../../common/utils/response.util';
+import { PermissionGuard } from '../../../common/guards/permissions.guard';
+import { Permission } from '../../../common/decorators/permission.decorator';
+import { Audit } from '../../../common/decorators/audit.decorator';
+import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
+import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 
 class CreatePlanDto {
   @ApiProperty() @IsString() name: string;
@@ -29,6 +34,7 @@ class SubscribeDto {
 
 @ApiTags('Subscriptions')
 @ApiBearerAuth('accessToken')
+  @UseGuards(PermissionGuard)
 @Controller({ path: 'subscriptions', version: '1' })
 export class SubscriptionController {
   constructor(private subscriptionService: SubscriptionService) { }
@@ -47,6 +53,7 @@ export class SubscriptionController {
 
   @Post('plans')
   @Roles(SYSTEM_ROLES.SUPER_ADMIN)
+  @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.SUBSCRIPTION })
   @ApiOperation({ summary: 'Create a subscription plan (super admin only)' })
   async createPlan(@Body() dto: CreatePlanDto, @CurrentUser() user: JwtPayload) {
     return successResponse(await this.subscriptionService.createPlan(dto, user.sub), 'Plan created');
@@ -54,18 +61,22 @@ export class SubscriptionController {
 
   @Patch('plans/:id')
   @Roles(SYSTEM_ROLES.SUPER_ADMIN)
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.SUBSCRIPTION })
   @ApiOperation({ summary: 'Update a plan (super admin only)' })
   async updatePlan(@Param('id') id: string, @Body() dto: Partial<CreatePlanDto>, @CurrentUser() user: JwtPayload) {
     return successResponse(await this.subscriptionService.updatePlan(id, dto, user.sub), 'Plan updated');
   }
 
   @Get('my')
+  @Permission(FEATURE_KEYS.SUB_VIEW)
   @ApiOperation({ summary: "Get organization's current subscription" })
   async getMySubscription(@OrgId() orgId: string) {
     return successResponse(await this.subscriptionService.getOrgSubscription(orgId));
   }
 
   @Post('subscribe')
+  @Permission(FEATURE_KEYS.SUB_MANAGE)
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.SUBSCRIPTION })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Subscribe organization to a plan' })
   async subscribe(@Body() dto: SubscribeDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
@@ -73,6 +84,8 @@ export class SubscriptionController {
   }
 
   @Post('cancel')
+  @Permission(FEATURE_KEYS.SUB_MANAGE)
+  @Audit({ action: ACTION_KEYS.CLOSE, module: MODULE_KEYS.SUBSCRIPTION })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Cancel organization subscription' })
   async cancel(@Body('reason') reason: string, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
