@@ -1,0 +1,666 @@
+// ============================================================
+// JusticeLynk – Complete Prisma Schema
+// ============================================================
+// Run: npx prisma migrate dev --name init
+// ============================================================
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["fullTextSearch", "fullTextIndex"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────────────────────
+
+enum UserType {
+  client
+  advocate
+  detective
+  super_admin
+}
+
+enum ProfessionalType {
+  advocate
+  detective
+}
+
+enum VerificationStatus {
+  pending
+  under_review
+  verified
+  rejected
+}
+
+enum OrgType {
+  law_firm
+  detective_agency
+  solo_practice
+}
+
+enum OrgMemberStatus {
+  active
+  inactive
+  invited
+  suspended
+}
+
+enum OrgMemberRole {
+  owner
+  admin
+  member
+}
+
+enum CaseType {
+  legal
+  investigation
+  arbitration
+  consultation
+}
+
+enum CaseStatus {
+  open
+  assigned
+  in_progress
+  hearing
+  closed
+  archived
+}
+
+enum CasePriority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum SubscriptionStatus {
+  active
+  trialing
+  past_due
+  canceled
+  unpaid
+  paused
+}
+
+enum BillingInterval {
+  monthly
+  quarterly
+  yearly
+}
+
+enum PaymentStatus {
+  pending
+  completed
+  failed
+  refunded
+}
+
+enum NotificationType {
+  case_update
+  case_assigned
+  new_message
+  subscription_alert
+  payment_received
+  invite_received
+  system
+}
+
+enum DocumentType {
+  evidence
+  court_order
+  contract
+  report
+  other
+}
+
+// ─────────────────────────────────────────────────────────────
+// USER & SECURITY
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  phone       String?   @unique
+  firstName   String
+  lastName    String
+  avatar      String?
+  userType    UserType  @default(client)
+  isActive    Boolean   @default(true)
+  isVerified  Boolean   @default(false)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  security        UserSecurity?
+  professional    Professional?
+  orgMemberships  OrganizationMember[]
+  rolesAssigned   UserRole[]
+  casesAsClient   Case[]              @relation("ClientCases")
+  caseAssignments CaseAssignment[]
+  caseMessages    CaseMessage[]
+  caseUpdates     CaseUpdate[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]          @relation("AuditUser")
+  payments        Payment[]
+
+  @@index([email])
+  @@index([userType])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model UserSecurity {
+  id                    String    @id @default(uuid())
+  userId                String    @unique
+  passwordHash          String
+  refreshTokenHash      String?
+  mfaEnabled            Boolean   @default(false)
+  mfaSecret             String?   // TOTP secret (encrypted)
+  mfaBackupCodes        String[]  @default([]) // hashed backup codes
+  loginAttempts         Int       @default(0)
+  lockedUntil           DateTime?
+  passwordResetToken    String?   // hashed
+  passwordResetExpiry   DateTime?
+  emailVerifyToken      String?   // hashed
+  emailVerifyExpiry     DateTime?
+  lastPasswordChangedAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_security")
+}
+
+// ─────────────────────────────────────────────────────────────
+// PROFESSIONALS
+// ─────────────────────────────────────────────────────────────
+
+model Professional {
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  type               ProfessionalType
+  barRegistration    String?            // for advocates
+  licenseNumber      String?            // for detectives
+  specializations    String[]           @default([])
+  experienceYears    Int                @default(0)
+  bio                String?            @db.Text
+  hourlyRate         Decimal?           @db.Decimal(10, 2)
+  rating             Decimal            @default(0) @db.Decimal(3, 2)
+  totalReviews       Int                @default(0)
+  verificationStatus VerificationStatus @default(pending)
+  verifiedAt         DateTime?
+  verifiedBy         String?
+  documents          Json?              // AWS S3 keys of verification docs
+  languages          String[]           @default([])
+  location           String?
+  isAvailable        Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([type])
+  @@index([verificationStatus])
+  @@index([rating])
+  @@map("professionals")
+}
+
+// ─────────────────────────────────────────────────────────────
+// ORGANIZATION
+// ─────────────────────────────────────────────────────────────
+
+model Organization {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  type        OrgType
+  description String?   @db.Text
+  logo        String?
+  website     String?
+  email       String?
+  phone       String?
+  address     Json?     // { street, city, state, country, zip }
+  settings    Json?     // org-level settings
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  members       OrganizationMember[]
+  invites       OrganizationInvite[]
+  cases         Case[]
+  subscription  Subscription?
+  roles         Role[]
+  payments      Payment[]
+  auditLogs     AuditLog[]    @relation("AuditOrg")
+
+  @@index([slug])
+  @@index([type])
+  @@index([deletedAt])
+  @@map("organizations")
+}
+
+model OrganizationMember {
+  id        String          @id @default(uuid())
+  orgId     String
+  userId    String
+  role      OrgMemberRole   @default(member)
+  status    OrgMemberStatus @default(active)
+  joinedAt  DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userRoles    UserRole[]
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
+  @@map("organization_members")
+}
+
+model OrganizationInvite {
+  id        String    @id @default(uuid())
+  orgId     String
+  email     String
+  token     String    @unique  // hashed invite token
+  role      OrgMemberRole @default(member)
+  expiresAt DateTime
+  acceptedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+
+  @@index([orgId])
+  @@index([email])
+  @@map("organization_invites")
+}
+
+// ─────────────────────────────────────────────────────────────
+// RBAC – Roles, Modules, Features, Actions, Permissions
+// ─────────────────────────────────────────────────────────────
+
+model Role {
+  id          String    @id @default(uuid())
+  orgId       String?   // null = system role
+  name        String
+  slug        String
+  description String?
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  organization Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  permissions  RolePermission[]
+  userRoles    UserRole[]
+
+  @@unique([orgId, slug])
+  @@index([orgId])
+  @@index([isSystem])
+  @@map("roles")
+}
+
+model Module {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  features    Feature[]
+  planModules PlanModule[]
+
+  @@index([key])
+  @@map("modules")
+}
+
+model Feature {
+  id       String  @id @default(uuid())
+  moduleId String
+  key      String  @unique
+  name     String
+  description String?
+
+  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  actions     Action[]
+  permissions RolePermission[]
+
+  @@index([moduleId])
+  @@map("features")
+}
+
+model Action {
+  id        String @id @default(uuid())
+  featureId String
+  key       String
+  name      String
+
+  feature     Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+
+  @@unique([featureId, key])
+  @@map("actions")
+}
+
+model RolePermission {
+  id        String  @id @default(uuid())
+  roleId    String
+  featureId String
+  actionId  String
+  granted   Boolean @default(true)
+
+  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  action  Action  @relation(fields: [actionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, featureId, actionId])
+  @@index([roleId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id       String  @id @default(uuid())
+  userId   String
+  roleId   String
+  orgId    String?
+  memberId String?
+
+  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role               @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  member OrganizationMember? @relation(fields: [memberId], references: [id])
+
+  @@unique([userId, roleId, orgId])
+  @@index([userId])
+  @@index([roleId])
+  @@map("user_roles")
+}
+
+// ─────────────────────────────────────────────────────────────
+// SUBSCRIPTION & BILLING
+// ─────────────────────────────────────────────────────────────
+
+model SubscriptionPlan {
+  id              String          @id @default(uuid())
+  name            String
+  slug            String          @unique
+  description     String?         @db.Text
+  price           Decimal         @db.Decimal(10, 2)
+  billingInterval BillingInterval @default(monthly)
+  trialDays       Int             @default(0)
+  isActive        Boolean         @default(true)
+  isPublic        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  modules       PlanModule[]
+  limits        PlanLimit[]
+  subscriptions Subscription[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("subscription_plans")
+}
+
+model PlanModule {
+  id       String @id @default(uuid())
+  planId   String
+  moduleId String
+
+  plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  module Module           @relation(fields: [moduleId], references: [id])
+
+  @@unique([planId, moduleId])
+  @@map("plan_modules")
+}
+
+model PlanLimit {
+  id       String @id @default(uuid())
+  planId   String
+  key      String  // e.g. 'maxUsers', 'maxCases', 'storageGb'
+  value    Int     // -1 = unlimited
+  
+  plan SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+
+  @@unique([planId, key])
+  @@map("plan_limits")
+}
+
+model Subscription {
+  id               String             @id @default(uuid())
+  orgId            String             @unique
+  planId           String
+  status           SubscriptionStatus @default(trialing)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt      DateTime?
+  canceledAt       DateTime?
+  cancelReason     String?
+  externalId       String?            // Razorpay subscription ID
+  metadata         Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
+  payments     Payment[]
+
+  @@index([orgId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  orgId          String
+  userId         String
+  subscriptionId String?
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("INR")
+  status         PaymentStatus @default(pending)
+  externalId     String?       // Razorpay payment ID
+  orderId        String?       // Razorpay order ID
+  receipt        String?
+  description    String?
+  metadata       Json?
+  failureReason  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organization Organization  @relation(fields: [orgId], references: [id])
+  user         User          @relation(fields: [userId], references: [id])
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([status])
+  @@map("payments")
+}
+
+// ─────────────────────────────────────────────────────────────
+// CASE MANAGEMENT
+// ─────────────────────────────────────────────────────────────
+
+model Case {
+  id              String       @id @default(uuid())
+  caseNumber      String       @unique
+  title           String
+  description     String       @db.Text
+  type            CaseType
+  status          CaseStatus   @default(open)
+  priority        CasePriority @default(medium)
+  orgId           String
+  clientId        String
+  courtName       String?
+  courtCaseNumber String?
+  nextHearingDate DateTime?
+  filedAt         DateTime?
+  closedAt        DateTime?
+  tags            String[]     @default([])
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?
+
+  organization Organization     @relation(fields: [orgId], references: [id])
+  client       User             @relation("ClientCases", fields: [clientId], references: [id])
+  assignments  CaseAssignment[]
+  updates      CaseUpdate[]
+  documents    CaseDocument[]
+  messages     CaseMessage[]
+
+  @@index([orgId])
+  @@index([clientId])
+  @@index([status])
+  @@index([type])
+  @@index([caseNumber])
+  @@index([deletedAt])
+  @@map("cases")
+}
+
+model CaseAssignment {
+  id          String    @id @default(uuid())
+  caseId      String
+  userId      String    // advocate or detective assigned
+  role        String    // 'lead_advocate', 'co_advocate', 'investigator', etc.
+  assignedAt  DateTime  @default(now())
+  assignedBy  String?
+  removedAt   DateTime?
+  notes       String?
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@unique([caseId, userId, role])
+  @@index([caseId])
+  @@index([userId])
+  @@map("case_assignments")
+}
+
+model CaseUpdate {
+  id          String   @id @default(uuid())
+  caseId      String
+  userId      String
+  title       String
+  content     String   @db.Text
+  isInternal  Boolean  @default(false)  // internal notes vs client-visible
+  updateType  String   @default("note") // 'note', 'hearing', 'status_change', 'document'
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([caseId])
+  @@index([userId])
+  @@map("case_updates")
+}
+
+model CaseDocument {
+  id           String       @id @default(uuid())
+  caseId       String
+  uploadedBy   String
+  name         String
+  description  String?
+  type         DocumentType @default(other)
+  s3Key        String       // AWS S3 object key
+  s3Bucket     String
+  mimeType     String?
+  sizeBytes    Int?
+  isConfidential Boolean    @default(false)
+  createdAt    DateTime     @default(now())
+
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@map("case_documents")
+}
+
+model CaseMessage {
+  id         String   @id @default(uuid())
+  caseId     String
+  senderId   String
+  content    String   @db.Text
+  isSystem   Boolean  @default(false)
+  readBy     String[] @default([]) // array of userIds who have read it
+  attachments Json?   // array of { name, s3Key, mimeType }
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id])
+
+  @@index([caseId])
+  @@index([senderId])
+  @@index([deletedAt])
+  @@map("case_messages")
+}
+
+// ─────────────────────────────────────────────────────────────
+// NOTIFICATIONS
+// ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  entityType String?          // 'case', 'message', 'payment', etc.
+  entityId   String?
+  isRead     Boolean          @default(false)
+  readAt     DateTime?
+  metadata   Json?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────
+// AUDIT LOG
+// ─────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  orgId      String?
+  module     String
+  action     String
+  entityType String?
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user         User?         @relation("AuditUser", fields: [userId], references: [id])
+  organization Organization? @relation("AuditOrg", fields: [orgId], references: [id])
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([module])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
