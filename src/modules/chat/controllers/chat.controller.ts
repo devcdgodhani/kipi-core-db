@@ -6,13 +6,14 @@ import { buildPaginatedResponse, getPaginationParams } from '../../../common/uti
 import { PermissionGuard } from '../../../common/guards/permissions.guard';
 import { Permission } from '../../../common/decorators/permission.decorator';
 import { FEATURE_KEYS } from '../../../common/constants/permissions.constants';
+import { ChatService } from '../services/chat.service';
 
 @ApiTags('Chat')
 @ApiBearerAuth('accessToken')
   @UseGuards(PermissionGuard)
 @Controller({ path: 'chat', version: '1' })
 export class ChatController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private chatService: ChatService) { }
 
   @Get('messages')
   @Permission(FEATURE_KEYS.CHAT_READ)
@@ -22,14 +23,7 @@ export class ChatController {
     @Query('page') page = 1,
     @Query('limit') limit = 50,
   ) {
-    const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
-    const [items, total] = await Promise.all([
-      this.prisma.caseMessage.findMany({
-        where: { caseId }, skip, take, orderBy: { createdAt: 'desc' },
-        include: { sender: { select: { id: true, firstName: true, lastName: true, avatar: true } } },
-      }),
-      this.prisma.caseMessage.count({ where: { caseId } }),
-    ]);
-    return successResponse(buildPaginatedResponse(items.reverse(), total, { page: +page, limit: +limit }));
+    const result = await this.chatService.getMessages(caseId, +page, +limit);
+    return successResponse(result);
   }
 }

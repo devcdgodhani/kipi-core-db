@@ -4,6 +4,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ChatGateway } from './gateways/chat.gateway';
 import { ChatController } from './controllers/chat.controller';
 import { AuditModule } from '../audit/audit.module';
+import { ChatService } from './services/chat.service';
+import { ChatRepository } from './repositories/chat.repository';
 
 @Module({
   imports: [
@@ -17,7 +19,7 @@ import { AuditModule } from '../audit/audit.module';
     }),
   ],
   controllers: [ChatController],
-  providers: [ChatGateway],
-  exports: [ChatGateway],
+  providers: [ChatGateway, ChatService, ChatRepository],
+  exports: [ChatGateway, ChatService],
 })
 export class ChatModule {}
