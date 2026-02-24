@@ -1,5 +1,13 @@
 import {
-  Controller, Get, Post, Delete, Body, Param, HttpCode, HttpStatus, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { SecurityService } from '../services/security.service';
@@ -19,7 +27,7 @@ class DisableMfaDto {
 
 @ApiTags('Security')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'security', version: '1' })
 export class SecurityController {
   constructor(private securityService: SecurityService) {}

@@ -4,7 +4,7 @@ import { FileStorage, FileDirectory, FileType } from '@prisma/client';
 
 @Injectable()
 export class StorageRepository {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   // ─── File Storage ───────────────────────────────────────────
 
@@ -33,7 +33,12 @@ export class StorageRepository {
     return this.prisma.fileStorage.findFirst({ where: { id, orgId } });
   }
 
-  async moveFile(id: string, orgId: string, targetDirPath: string, targetDir: string): Promise<FileStorage> {
+  async moveFile(
+    id: string,
+    orgId: string,
+    targetDirPath: string,
+    targetDir: string,
+  ): Promise<FileStorage> {
     return this.prisma.fileStorage.update({
       where: { id },
       data: { storageDirPath: targetDirPath, storageDir: targetDir },
@@ -107,7 +112,10 @@ export class StorageRepository {
     });
   }
 
-  async findDirectoriesByParent(orgId: string, parentPath: string | null): Promise<FileDirectory[]> {
+  async findDirectoriesByParent(
+    orgId: string,
+    parentPath: string | null,
+  ): Promise<FileDirectory[]> {
     return this.prisma.fileDirectory.findMany({
       where: { orgId, parentPath: parentPath ?? null },
       orderBy: { name: 'asc' },

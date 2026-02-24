@@ -1,7 +1,12 @@
 import {
-  WebSocketGateway, WebSocketServer, SubscribeMessage,
-  OnGatewayConnection, OnGatewayDisconnect, MessageBody,
-  ConnectedSocket, WsException,
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  MessageBody,
+  ConnectedSocket,
+  WsException,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { Logger, UseGuards } from '@nestjs/common';
@@ -22,7 +27,7 @@ interface AuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
   cors: { origin: true, credentials: true }, // 'true' inherits from main app or handles dynamically
-  namespace: '/chat'
+  namespace: '/chat',
 })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
@@ -39,14 +44,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: AuthenticatedSocket) {
     try {
-      const token = client.handshake.auth?.token ||
+      const token =
+        client.handshake.auth?.token ||
         client.handshake.headers?.authorization?.replace('Bearer ', '') ||
         client.handshake.query?.token;
 
       if (!token || typeof token !== 'string') throw new WsException('Missing auth token');
 
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: this.configService.get<string>('jwt.secret')
+        secret: this.configService.get<string>('jwt.secret'),
       });
 
       client.userId = payload.sub;
@@ -81,7 +87,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(SOCKET_EVENTS.JOIN_ROOM)
-  async handleJoinRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
+  async handleJoinRoom(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { caseId: string },
+  ) {
     client.join(SOCKET_ROOMS.case(data.caseId));
     this.logger.log(`User ${client.userId} joined case room: ${data.caseId}`);
     client.emit(SOCKET_EVENTS.ROOM_JOINED, { room: data.caseId });
@@ -89,7 +98,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.LEAVE_ROOM)
-  async handleLeaveRoom(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
+  async handleLeaveRoom(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { caseId: string },
+  ) {
     client.leave(SOCKET_ROOMS.case(data.caseId));
     this.logger.log(`User ${client.userId} left case room: ${data.caseId}`);
     client.emit(SOCKET_EVENTS.ROOM_LEFT, { room: data.caseId });
@@ -97,7 +109,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.SEND_MESSAGE)
-  async handleMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string; content: string }) {
+  async handleMessage(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { caseId: string; content: string },
+  ) {
     const message = await this.chatService.sendMessage(client.userId, client.orgId, data);
     this.server.to(SOCKET_ROOMS.case(data.caseId)).emit(SOCKET_EVENTS.NEW_MESSAGE, message);
     return message;
@@ -105,32 +120,64 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.MESSAGE_READ)
-  async handleMessageRead(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { messageId: string }) {
+  async handleMessageRead(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { messageId: string },
+  ) {
     const updated = await this.chatService.markAsRead(client.userId, client.orgId, data.messageId);
-    this.server.to(SOCKET_ROOMS.case(updated.caseId)).emit(SOCKET_EVENTS.MESSAGE_READ, { messageId: updated.id, userId: client.userId });
+    this.server
+      .to(SOCKET_ROOMS.case(updated.caseId))
+      .emit(SOCKET_EVENTS.MESSAGE_READ, { messageId: updated.id, userId: client.userId });
     return updated;
   }
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage(SOCKET_EVENTS.MESSAGE_DELETED)
-  async handleMessageDelete(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { messageId: string }) {
-    const deleted = await this.chatService.deleteMessage(client.userId, client.orgId, data.messageId);
-    this.server.to(SOCKET_ROOMS.case(deleted.caseId)).emit(SOCKET_EVENTS.MESSAGE_DELETED, { messageId: deleted.id });
+  async handleMessageDelete(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { messageId: string },
+  ) {
+    const deleted = await this.chatService.deleteMessage(
+      client.userId,
+      client.orgId,
+      data.messageId,
+    );
+    this.server
+      .to(SOCKET_ROOMS.case(deleted.caseId))
+      .emit(SOCKET_EVENTS.MESSAGE_DELETED, { messageId: deleted.id });
     return { success: true };
   }
 
   @SubscribeMessage(SOCKET_EVENTS.TYPING)
-  handleTyping(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
-    client.to(SOCKET_ROOMS.case(data.caseId)).emit(SOCKET_EVENTS.USER_TYPING, { userId: client.userId, caseId: data.caseId });
+  handleTyping(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { caseId: string },
+  ) {
+    client
+      .to(SOCKET_ROOMS.case(data.caseId))
+      .emit(SOCKET_EVENTS.USER_TYPING, { userId: client.userId, caseId: data.caseId });
   }
 
   @SubscribeMessage(SOCKET_EVENTS.STOP_TYPING)
-  handleStopTyping(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() data: { caseId: string }) {
-    client.to(SOCKET_ROOMS.case(data.caseId)).emit(SOCKET_EVENTS.USER_STOP_TYPING, { userId: client.userId, caseId: data.caseId });
+  handleStopTyping(
+    @ConnectedSocket() client: AuthenticatedSocket,
+    @MessageBody() data: { caseId: string },
+  ) {
+    client
+      .to(SOCKET_ROOMS.case(data.caseId))
+      .emit(SOCKET_EVENTS.USER_STOP_TYPING, { userId: client.userId, caseId: data.caseId });
   }
 
-  sendToUser(userId: string, event: string, data: any) { this.server.to(SOCKET_ROOMS.user(userId)).emit(event, data); }
-  sendToOrg(orgId: string, event: string, data: any) { this.server.to(SOCKET_ROOMS.org(orgId)).emit(event, data); }
-  sendToCase(caseId: string, event: string, data: any) { this.server.to(SOCKET_ROOMS.case(caseId)).emit(event, data); }
-  getOnlineUsers(): string[] { return Array.from(this.onlineUsers.keys()); }
+  sendToUser(userId: string, event: string, data: any) {
+    this.server.to(SOCKET_ROOMS.user(userId)).emit(event, data);
+  }
+  sendToOrg(orgId: string, event: string, data: any) {
+    this.server.to(SOCKET_ROOMS.org(orgId)).emit(event, data);
+  }
+  sendToCase(caseId: string, event: string, data: any) {
+    this.server.to(SOCKET_ROOMS.case(caseId)).emit(event, data);
+  }
+  getOnlineUsers(): string[] {
+    return Array.from(this.onlineUsers.keys());
+  }
 }

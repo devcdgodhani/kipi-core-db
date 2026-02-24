@@ -22,7 +22,13 @@ export class ProfessionalsService {
     return prof;
   }
 
-  async findAll(params: { type?: string; specialization?: string; city?: string; page?: number; limit?: number }) {
+  async findAll(params: {
+    type?: string;
+    specialization?: string;
+    city?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const dto = { page: params.page || 1, limit: params.limit || 20 };
     const { skip, take } = getPaginationParams(dto);
     const { items, total } = await this.professionalsRepository.findAll({ skip, take, ...params });

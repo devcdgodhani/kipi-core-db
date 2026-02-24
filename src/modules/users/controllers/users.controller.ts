@@ -23,10 +23,10 @@ class UpdateProfileDto {
 
 @ApiTags('Users')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'users', version: '1' })
 export class UsersController {
-  constructor(private usersService: UsersService) { }
+  constructor(private usersService: UsersService) {}
 
   @Get('profile')
   @Permission(FEATURE_KEYS.TEAM_VIEW)

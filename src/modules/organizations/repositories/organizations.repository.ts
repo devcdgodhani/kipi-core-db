@@ -27,7 +27,14 @@ export class OrganizationsRepository {
   async findByUser(userId: string) {
     return this.prisma.organizationMember.findMany({
       where: { userId, status: 'active' },
-      include: { organization: { include: { subscription: { include: { plan: true } }, _count: { select: { members: true } } } } },
+      include: {
+        organization: {
+          include: {
+            subscription: { include: { plan: true } },
+            _count: { select: { members: true } },
+          },
+        },
+      },
     });
   }
 
@@ -47,8 +54,13 @@ export class OrganizationsRepository {
     const [items, total] = await Promise.all([
       this.prisma.organizationMember.findMany({
         where: { orgId, status: 'active' },
-        skip, take,
-        include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } },
+        skip,
+        take,
+        include: {
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
+          },
+        },
         orderBy: { joinedAt: 'asc' },
       }),
       this.prisma.organizationMember.count({ where: { orgId, status: 'active' } }),
@@ -57,7 +69,10 @@ export class OrganizationsRepository {
   }
 
   async removeMember(orgId: string, userId: string) {
-    return this.prisma.organizationMember.updateMany({ where: { orgId, userId }, data: { status: 'inactive' } });
+    return this.prisma.organizationMember.updateMany({
+      where: { orgId, userId },
+      data: { status: 'inactive' },
+    });
   }
 
   async createInvite(data: any) {
@@ -69,6 +84,9 @@ export class OrganizationsRepository {
   }
 
   async updateInviteStatus(id: string, accepted: boolean) {
-    return this.prisma.organizationInvite.update({ where: { id }, data: { acceptedAt: accepted ? new Date() : null } });
+    return this.prisma.organizationInvite.update({
+      where: { id },
+      data: { acceptedAt: accepted ? new Date() : null },
+    });
   }
 }

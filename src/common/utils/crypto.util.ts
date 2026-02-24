@@ -27,9 +27,7 @@ export function generateSecureToken(bytes = 64): string {
  * Generate N backup codes (8-char alphanumeric)
  */
 export function generateBackupCodes(count = 10): string[] {
-  return Array.from({ length: count }, () =>
-    crypto.randomBytes(4).toString('hex').toUpperCase(),
-  );
+  return Array.from({ length: count }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
 }
 
 /**

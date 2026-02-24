@@ -71,7 +71,11 @@ export class StorageService {
       this.storageRepository.findFilesByPath(orgId, normalizedPath),
     ]);
     const filesWithUrls = await this.attachSignedUrls(files as unknown as IFileStorage[]);
-    return { directories: directories as unknown as import('../interfaces/storage.interface').IFileDirectory[], files: filesWithUrls };
+    return {
+      directories:
+        directories as unknown as import('../interfaces/storage.interface').IFileDirectory[],
+      files: filesWithUrls,
+    };
   }
 
   // ─── File Upload (with auto-directory) ──────────────────────
@@ -260,7 +264,11 @@ export class StorageService {
     await createFolder(folderPath, this.bucket);
   }
 
-  private async ensureDirectoryExists(orgId: string, userId: string, dirPath: string): Promise<void> {
+  private async ensureDirectoryExists(
+    orgId: string,
+    userId: string,
+    dirPath: string,
+  ): Promise<void> {
     const parts = dirPath.split('/');
     let current = '';
     for (const part of parts) {

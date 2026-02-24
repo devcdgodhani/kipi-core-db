@@ -57,7 +57,11 @@ export class PermissionGuard implements CanActivate {
 
     if (orgId) {
       const subCacheKey = `jl:subscription:${orgId}`;
-      const subscription = await this.redisService.get<{ status: string; modules: string[]; limits: Record<string, number> }>(subCacheKey);
+      const subscription = await this.redisService.get<{
+        status: string;
+        modules: string[];
+        limits: Record<string, number>;
+      }>(subCacheKey);
 
       // STEP 2: subscription active
       if (subscription && subscription.status !== 'active' && subscription.status !== 'trialing') {
@@ -69,7 +73,9 @@ export class PermissionGuard implements CanActivate {
         for (const permission of requiredPermissions) {
           const moduleKey = permission.split('.')[0];
           if (!subscription.modules.includes(moduleKey)) {
-            throw new ForbiddenException(`Module '${moduleKey}' is not available in your current plan`);
+            throw new ForbiddenException(
+              `Module '${moduleKey}' is not available in your current plan`,
+            );
           }
         }
       }
@@ -89,9 +95,7 @@ export class PermissionGuard implements CanActivate {
     const cachedPermissions = await this.redisService.get<string[]>(permCacheKey);
 
     if (cachedPermissions) {
-      const hasPermission = requiredPermissions.every((perm) =>
-        cachedPermissions.includes(perm),
-      );
+      const hasPermission = requiredPermissions.every((perm) => cachedPermissions.includes(perm));
       if (!hasPermission) {
         throw new ForbiddenException('You do not have the required permissions');
       }

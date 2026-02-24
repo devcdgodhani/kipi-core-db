@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsEnum,
   Matches,
+  Length,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserType } from '@prisma/client';
@@ -58,6 +59,23 @@ export class LoginDto {
   password: string;
 }
 
+export class VerifyEmailOtpDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: '6-digit OTP sent to email', example: '123456' })
+  @IsString()
+  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
+  otp: string;
+}
+
+export class ResendOtpDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+}
+
 export class MfaVerifyDto {
   @ApiProperty({ description: '6-digit TOTP code from authenticator app', example: '123456' })
   @IsString()
@@ -94,10 +112,21 @@ export class ForgotPasswordDto {
   email: string;
 }
 
-export class ResetPasswordDto {
-  @ApiProperty({ description: 'Reset token from email' })
+export class VerifyForgotPasswordOtpDto {
+  @ApiProperty({ example: 'john.doe@example.com' })
+  @IsEmail()
+  email: string;
+
+  @ApiProperty({ description: '6-digit OTP sent via email', example: '123456' })
   @IsString()
-  token: string;
+  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
+  otp: string;
+}
+
+export class ResetPasswordDto {
+  @ApiProperty({ description: 'Short-lived reset session token returned by verify-otp step' })
+  @IsString()
+  resetToken: string;
 
   @ApiProperty({ minLength: 8 })
   @IsString()

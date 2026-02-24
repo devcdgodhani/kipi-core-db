@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { OrganizationsRepository } from '../repositories/organizations.repository';
 import { AuditService } from '../../audit/services/audit.service';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
@@ -12,10 +17,21 @@ export class OrganizationsService {
   ) {}
 
   async create(data: any, userId: string) {
-    const slug = data.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    const slug = data.name
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
     const org = await this.orgsRepository.create({ ...data, slug, ownerId: userId });
     await this.orgsRepository.addMember(org.id, userId, 'owner');
-    await this.auditService.log({ userId, orgId: org.id, module: 'organizations', action: 'create', entityType: 'organization', entityId: org.id, newData: data });
+    await this.auditService.log({
+      userId,
+      orgId: org.id,
+      module: 'organizations',
+      action: 'create',
+      entityType: 'organization',
+      entityId: org.id,
+      newData: data,
+    });
     return org;
   }
 
@@ -32,7 +48,15 @@ export class OrganizationsService {
   async update(id: string, data: any, userId: string) {
     await this.findById(id);
     const updated = await this.orgsRepository.update(id, data);
-    await this.auditService.log({ userId, orgId: id, module: 'organizations', action: 'update', entityType: 'organization', entityId: id, newData: data });
+    await this.auditService.log({
+      userId,
+      orgId: id,
+      module: 'organizations',
+      action: 'update',
+      entityType: 'organization',
+      entityId: id,
+      newData: data,
+    });
     return updated;
   }
 
@@ -47,7 +71,11 @@ export class OrganizationsService {
     await this.findById(orgId);
     const token = generateSecureToken(32);
     const invite = await this.orgsRepository.createInvite({
-      orgId, email, role, invitedBy, token,
+      orgId,
+      email,
+      role,
+      invitedBy,
+      token,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
     // TODO: send invite email with token

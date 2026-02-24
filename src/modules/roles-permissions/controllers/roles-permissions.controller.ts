@@ -1,6 +1,4 @@
-import {
-  Controller, Get, Post, Patch, Delete, Body, Param, UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { RolesPermissionsService } from '../services/roles-permissions.service';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -37,7 +35,7 @@ class GrantPermissionsDto {
 
 @ApiTags('Roles & Permissions')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'roles', version: '1' })
 export class RolesPermissionsController {
   constructor(private rolesService: RolesPermissionsService) {}
@@ -46,7 +44,11 @@ export class RolesPermissionsController {
   @Permission(FEATURE_KEYS.ROLES_MANAGE)
   @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.ROLES })
   @ApiOperation({ summary: 'Create custom role for org' })
-  async createRole(@Body() dto: CreateRoleDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
+  async createRole(
+    @Body() dto: CreateRoleDto,
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
     const result = await this.rolesService.createRole(dto.name, dto.description, orgId, user.sub);
     return successResponse(result, 'Role created');
   }
@@ -71,8 +73,17 @@ export class RolesPermissionsController {
   @Permission(FEATURE_KEYS.ROLES_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ROLES })
   @ApiOperation({ summary: 'Grant module permissions to a role' })
-  async grant(@Body() dto: GrantPermissionsDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
-    const result = await this.rolesService.grantPermissions(dto.roleId, dto.permissions, orgId, user.sub);
+  async grant(
+    @Body() dto: GrantPermissionsDto,
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const result = await this.rolesService.grantPermissions(
+      dto.roleId,
+      dto.permissions,
+      orgId,
+      user.sub,
+    );
     return successResponse(result, 'Permissions granted');
   }
 
@@ -80,8 +91,17 @@ export class RolesPermissionsController {
   @Permission(FEATURE_KEYS.TEAM_MANAGE_ROLES)
   @Audit({ action: ACTION_KEYS.ASSIGN, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Assign a role to a user' })
-  async assignRole(@Body() dto: AssignRoleDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
-    const result = await this.rolesService.assignRoleToUser(dto.userId, dto.roleId, orgId, user.sub);
+  async assignRole(
+    @Body() dto: AssignRoleDto,
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const result = await this.rolesService.assignRoleToUser(
+      dto.userId,
+      dto.roleId,
+      orgId,
+      user.sub,
+    );
     return successResponse(result, 'Role assigned to user');
   }
 
@@ -97,7 +117,11 @@ export class RolesPermissionsController {
   @Permission(FEATURE_KEYS.ROLES_MANAGE)
   @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.ROLES })
   @ApiOperation({ summary: 'Delete a custom role' })
-  async deleteRole(@Param('id') id: string, @CurrentUser() user: JwtPayload, @OrgId() orgId: string) {
+  async deleteRole(
+    @Param('id') id: string,
+    @CurrentUser() user: JwtPayload,
+    @OrgId() orgId: string,
+  ) {
     await this.rolesService.deleteRole(id, orgId, user.sub);
     return successResponse(null, 'Role deleted');
   }

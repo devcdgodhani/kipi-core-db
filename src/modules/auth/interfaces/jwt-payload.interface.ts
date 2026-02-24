@@ -1,7 +1,7 @@
 export interface JwtPayload {
-  sub: string;           // userId
+  sub: string; // userId
   email: string;
-  role: string;          // system role
+  role: string; // system role
   userType: string;
   currentOrgId?: string; // org context
   mfaVerified?: boolean;

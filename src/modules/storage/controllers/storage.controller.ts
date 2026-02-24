@@ -12,18 +12,17 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiTags,
-  ApiBearerAuth,
-  ApiOperation,
-  ApiConsumes,
-  ApiHeader,
-} from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiHeader } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 
 import { StorageService } from '../services/storage.service';
-import { CreateDirectoryDto, ListFilesQueryDto, MoveFileDto, CopyFileDto } from '../dto/storage.dto';
+import {
+  CreateDirectoryDto,
+  ListFilesQueryDto,
+  MoveFileDto,
+  CopyFileDto,
+} from '../dto/storage.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OrgId } from '../../../common/decorators/org-id.decorator';
 import { Permission } from '../../../common/decorators/permission.decorator';
@@ -34,10 +33,14 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 
 @ApiTags('Storage')
 @ApiBearerAuth('accessToken')
-@ApiHeader({ name: 'x-org-id', required: false, description: 'Organization ID (optional – scopes upload to org directory)' })
+@ApiHeader({
+  name: 'x-org-id',
+  required: false,
+  description: 'Organization ID (optional – scopes upload to org directory)',
+})
 @Controller({ path: 'storage', version: '1' })
 export class StorageController {
-  constructor(private readonly storageService: StorageService) { }
+  constructor(private readonly storageService: StorageService) {}
 
   // ─── Directory Management ───────────────────────────────────
 
@@ -69,10 +72,7 @@ export class StorageController {
   @Get()
   @Permission(FEATURE_KEYS.STORAGE_READ)
   @ApiOperation({ summary: 'List files and folders at a given path' })
-  async listFilesAndFolders(
-    @OrgId() orgId: string,
-    @Query() query: ListFilesQueryDto,
-  ) {
+  async listFilesAndFolders(@OrgId() orgId: string, @Query() query: ListFilesQueryDto) {
     const result = await this.storageService.getFilesAndFolders(orgId, query.path ?? '');
     return successResponse(result, 'Files and folders retrieved');
   }
@@ -83,7 +83,8 @@ export class StorageController {
   @Permission(FEATURE_KEYS.STORAGE_UPLOAD)
   @Audit({ action: 'upload', module: 'storage' })
   @ApiOperation({
-    summary: 'Upload files – auto-creates user root dir (email) and org sub-dir when x-org-id header is present',
+    summary:
+      'Upload files – auto-creates user root dir (email) and org sub-dir when x-org-id header is present',
   })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FilesInterceptor('files', 20, { storage: memoryStorage() }))
@@ -120,7 +121,9 @@ export class StorageController {
   @Permission(FEATURE_KEYS.STORAGE_CREATE)
   @Audit({ action: 'create', module: 'storage' })
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Copy a file to a directory (S3 copy + new DB record, source preserved)' })
+  @ApiOperation({
+    summary: 'Copy a file to a directory (S3 copy + new DB record, source preserved)',
+  })
   async copyFile(@OrgId() orgId: string, @Body() dto: CopyFileDto) {
     const result = await this.storageService.copyFileRecord(orgId, dto);
     return successResponse(result, 'File copied successfully');

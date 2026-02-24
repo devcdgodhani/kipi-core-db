@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to {{appName}}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f0f4f8; color: #1a202c; }
+    .wrapper { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #1a56db 0%, #7c3aed 100%); padding: 48px; text-align: center; }
+    .header-logo { font-size: 28px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; }
+    .header-tagline { color: rgba(255,255,255,0.85); font-size: 15px; margin-top: 8px; }
+    .body { padding: 48px; }
+    .welcome-icon { font-size: 64px; text-align: center; margin-bottom: 24px; }
+    .greeting { font-size: 24px; font-weight: 700; color: #1a202c; margin-bottom: 12px; text-align: center; }
+    .text { font-size: 15px; color: #4a5568; line-height: 1.7; margin-bottom: 24px; }
+    .role-badge { display: inline-block; background: linear-gradient(135deg, #1a56db 0%, #7c3aed 100%); color: #fff; padding: 4px 14px; border-radius: 100px; font-size: 13px; font-weight: 600; text-transform: capitalize; }
+    .features { background: #f7fafc; border-radius: 12px; padding: 24px; margin: 24px 0; }
+    .feature-item { display: flex; align-items: flex-start; margin-bottom: 16px; font-size: 14px; color: #4a5568; }
+    .feature-icon { margin-right: 12px; font-size: 18px; flex-shrink: 0; }
+    .cta-btn { display: block; width: fit-content; margin: 32px auto; padding: 16px 40px; background: linear-gradient(135deg, #1a56db 0%, #7c3aed 100%); color: #fff; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; }
+    .footer { padding: 24px 48px; background: #f7fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="header-logo">⚖️ {{appName}}</div>
+      <div class="header-tagline">Enterprise Legal Case Management Platform</div>
+    </div>
+    <div class="body">
+      <div class="welcome-icon">🎉</div>
+      <p class="greeting">Welcome aboard, {{firstName}}!</p>
+      <p class="text" style="text-align:center;">
+        Your account has been verified. You're now registered as a 
+        <span class="role-badge">{{userType}}</span>
+      </p>
+      <div class="features">
+        <div class="feature-item"><span class="feature-icon">📁</span><span>Manage legal cases and track progress in real time</span></div>
+        <div class="feature-item"><span class="feature-icon">💬</span><span>Communicate securely with your legal team</span></div>
+        <div class="feature-item"><span class="feature-icon">📄</span><span>Upload and access case documents securely</span></div>
+        <div class="feature-item" style="margin-bottom:0"><span class="feature-icon">🔔</span><span>Get real-time notifications on case updates</span></div>
+      </div>
+      <a href="{{appUrl}}/login" class="cta-btn">Get Started →</a>
+    </div>
+    <div class="footer">
+      <p>© {{year}} {{appName}}. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

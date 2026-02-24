@@ -19,7 +19,7 @@ export class RolesPermissionsService {
       module: 'roles',
       action: 'create_role',
       entityType: 'role',
-      entityId: role.id
+      entityId: role.id,
     });
     return role;
   }
@@ -32,7 +32,12 @@ export class RolesPermissionsService {
     return this.repo.getRolePermissions(roleId);
   }
 
-  async grantPermissions(roleId: string, permissions: { featureId: string; actionId: string }[], orgId: string, userId: string) {
+  async grantPermissions(
+    roleId: string,
+    permissions: { featureId: string; actionId: string }[],
+    orgId: string,
+    userId: string,
+  ) {
     const result = await this.repo.setRolePermissions(roleId, permissions);
     // Invalidate cached permissions for all users with this role
     await this.redisService.delPattern(`jl:permissions:*:${orgId}`);
@@ -43,7 +48,7 @@ export class RolesPermissionsService {
       action: 'grant_permissions',
       entityType: 'role',
       entityId: roleId,
-      newData: { permissions }
+      newData: { permissions },
     });
     return result;
   }
@@ -59,7 +64,7 @@ export class RolesPermissionsService {
       action: 'assign_role',
       entityType: 'user',
       entityId: userId,
-      newData: { roleId }
+      newData: { roleId },
     });
     return result;
   }
@@ -72,7 +77,8 @@ export class RolesPermissionsService {
     const role = await this.repo.findRoleById(id);
     if (!role) throw new NotFoundException('Role not found');
     if (role.isSystem) throw new ForbiddenException('Cannot delete system roles');
-    if (role.orgId !== orgId) throw new ForbiddenException('Role does not belong to your organization');
+    if (role.orgId !== orgId)
+      throw new ForbiddenException('Role does not belong to your organization');
     await this.repo.deleteRole(id);
     await this.redisService.delPattern(`jl:permissions:*:${orgId}`);
     await this.auditService.log({
@@ -81,7 +87,7 @@ export class RolesPermissionsService {
       module: 'roles',
       action: 'delete_role',
       entityType: 'role',
-      entityId: id
+      entityId: id,
     });
   }
 }

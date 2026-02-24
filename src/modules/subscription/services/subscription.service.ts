@@ -6,8 +6,12 @@ import { BillingInterval } from '@prisma/client';
 import dayjs from 'dayjs';
 
 interface CreatePlanDto {
-  name: string; slug: string; description?: string; price: number;
-  billingInterval?: BillingInterval; trialDays?: number;
+  name: string;
+  slug: string;
+  description?: string;
+  price: number;
+  billingInterval?: BillingInterval;
+  trialDays?: number;
 }
 
 @Injectable()
@@ -29,14 +33,31 @@ export class SubscriptionService {
   }
 
   async createPlan(dto: CreatePlanDto, adminUserId: string) {
-    const plan = await this.repo.createPlan({ ...dto, billingInterval: dto.billingInterval || 'monthly', trialDays: dto.trialDays || 0 });
-    await this.auditService.log({ userId: adminUserId, module: 'subscription', action: 'create_plan', entityType: 'plan', entityId: plan.id });
+    const plan = await this.repo.createPlan({
+      ...dto,
+      billingInterval: dto.billingInterval || 'monthly',
+      trialDays: dto.trialDays || 0,
+    });
+    await this.auditService.log({
+      userId: adminUserId,
+      module: 'subscription',
+      action: 'create_plan',
+      entityType: 'plan',
+      entityId: plan.id,
+    });
     return plan;
   }
 
   async updatePlan(id: string, data: Partial<CreatePlanDto>, adminUserId: string) {
     const plan = await this.repo.updatePlan(id, data);
-    await this.auditService.log({ userId: adminUserId, module: 'subscription', action: 'update_plan', entityType: 'plan', entityId: id, newData: data });
+    await this.auditService.log({
+      userId: adminUserId,
+      module: 'subscription',
+      action: 'update_plan',
+      entityType: 'plan',
+      entityId: id,
+      newData: data,
+    });
     return plan;
   }
 
@@ -49,9 +70,12 @@ export class SubscriptionService {
   async subscribe(orgId: string, planId: string, userId: string) {
     const plan = await this.getPlanById(planId);
     const now = dayjs();
-    const periodEnd = plan.billingInterval === 'yearly'
-      ? now.add(1, 'year') : plan.billingInterval === 'quarterly'
-      ? now.add(3, 'month') : now.add(1, 'month');
+    const periodEnd =
+      plan.billingInterval === 'yearly'
+        ? now.add(1, 'year')
+        : plan.billingInterval === 'quarterly'
+          ? now.add(3, 'month')
+          : now.add(1, 'month');
 
     const trialEndsAt = plan.trialDays > 0 ? now.add(plan.trialDays, 'day').toDate() : null;
     const sub = await this.repo.upsertSubscription(orgId, planId, {
@@ -61,7 +85,15 @@ export class SubscriptionService {
       trialEndsAt,
     });
     await this.cacheSubscription(orgId, sub);
-    await this.auditService.log({ userId, orgId, module: 'subscription', action: 'subscribe', entityType: 'subscription', entityId: sub.id, newData: { planId } });
+    await this.auditService.log({
+      userId,
+      orgId,
+      module: 'subscription',
+      action: 'subscribe',
+      entityType: 'subscription',
+      entityId: sub.id,
+      newData: { planId },
+    });
     return sub;
   }
 
@@ -70,14 +102,30 @@ export class SubscriptionService {
     if (!sub) throw new NotFoundException('No subscription found');
     await this.repo.updateStatus(orgId, 'canceled');
     await this.redisService.del(`jl:subscription:${orgId}`);
-    await this.auditService.log({ userId, orgId, module: 'subscription', action: 'cancel', entityType: 'subscription', entityId: sub.id, newData: { reason } });
+    await this.auditService.log({
+      userId,
+      orgId,
+      module: 'subscription',
+      action: 'cancel',
+      entityType: 'subscription',
+      entityId: sub.id,
+      newData: { reason },
+    });
     return { message: 'Subscription cancelled' };
   }
 
   private async cacheSubscription(orgId: string, sub: any) {
     const modules = sub.plan?.modules?.map((pm: any) => pm.module?.key) || [];
-    await this.redisService.set(`jl:subscription:${orgId}`, {
-      status: sub.status, planSlug: sub.plan?.slug, modules, limits: sub.plan?.limits || [], expiresAt: sub.currentPeriodEnd,
-    }, 3600);
+    await this.redisService.set(
+      `jl:subscription:${orgId}`,
+      {
+        status: sub.status,
+        planSlug: sub.plan?.slug,
+        modules,
+        limits: sub.plan?.limits || [],
+        expiresAt: sub.currentPeriodEnd,
+      },
+      3600,
+    );
   }
 }

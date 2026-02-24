@@ -10,13 +10,9 @@ import { StorageService } from './services/storage.service';
 import { StorageRepository } from './repositories/storage.repository';
 
 @Module({
-  imports: [
-    PrismaModule,
-    ConfigModule,
-    MulterModule.register({ storage: memoryStorage() }),
-  ],
+  imports: [PrismaModule, ConfigModule, MulterModule.register({ storage: memoryStorage() })],
   controllers: [StorageController],
   providers: [StorageService, StorageRepository, PrismaService],
   exports: [StorageService],
 })
-export class StorageModule { }
+export class StorageModule {}

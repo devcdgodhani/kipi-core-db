@@ -1,6 +1,4 @@
-import {
-  Controller, Get, Patch, Delete, Body, Param, Query, UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../../database/prisma.service';
 import { Roles } from '../../../common/decorators/roles.decorator';
@@ -16,10 +14,10 @@ import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 @ApiTags('Admin')
 @ApiBearerAuth('accessToken')
 @Roles(SYSTEM_ROLES.SUPER_ADMIN)
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService) {}
 
   @Get('stats')
   @Permission(FEATURE_KEYS.ADMIN_VIEW)
@@ -32,16 +30,31 @@ export class AdminController {
       this.prisma.professional.count(),
       this.prisma.payment.aggregate({ _sum: { amount: true }, where: { status: 'completed' } }),
     ]);
-    return successResponse({ users, organizations, cases, professionals, totalRevenue: revenue._sum.amount || 0 });
+    return successResponse({
+      users,
+      organizations,
+      cases,
+      professionals,
+      totalRevenue: revenue._sum.amount || 0,
+    });
   }
 
   @Get('users')
   @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all platform users' })
-  async listUsers(@Query('page') page = 1, @Query('limit') limit = 20, @Query('search') search?: string, @Query('isActive') isActive?: string) {
+  async listUsers(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('search') search?: string,
+    @Query('isActive') isActive?: string,
+  ) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
     const where: any = { deletedAt: null };
-    if (search) where.OR = [{ email: { contains: search, mode: 'insensitive' } }, { firstName: { contains: search, mode: 'insensitive' } }];
+    if (search)
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { firstName: { contains: search, mode: 'insensitive' } },
+      ];
     if (isActive !== undefined) where.isActive = isActive === 'true';
     const [items, total] = await Promise.all([
       this.prisma.user.findMany({ where, skip, take, orderBy: { createdAt: 'desc' } }),
@@ -62,14 +75,23 @@ export class AdminController {
   @Get('organizations')
   @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all organizations' })
-  async listOrgs(@Query('page') page = 1, @Query('limit') limit = 20, @Query('search') search?: string) {
+  async listOrgs(
+    @Query('page') page = 1,
+    @Query('limit') limit = 20,
+    @Query('search') search?: string,
+  ) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
     const where: any = { deletedAt: null };
     if (search) where.name = { contains: search, mode: 'insensitive' };
     const [items, total] = await Promise.all([
       this.prisma.organization.findMany({
-        where, skip, take,
-        include: { _count: { select: { members: true, cases: true } }, subscription: { include: { plan: true } } },
+        where,
+        skip,
+        take,
+        include: {
+          _count: { select: { members: true, cases: true } },
+          subscription: { include: { plan: true } },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.organization.count({ where }),
@@ -84,7 +106,9 @@ export class AdminController {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
     const [items, total] = await Promise.all([
       this.prisma.professional.findMany({
-        where: { verificationStatus: 'pending' }, skip, take,
+        where: { verificationStatus: 'pending' },
+        skip,
+        take,
         include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
         orderBy: { createdAt: 'asc' },
       }),
@@ -98,7 +122,10 @@ export class AdminController {
   @ApiOperation({ summary: 'Get revenue breakdown by year' })
   async getRevenue(@Query('year') year = new Date().getFullYear()) {
     const payments = await this.prisma.payment.findMany({
-      where: { status: 'completed', createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31`) } },
+      where: {
+        status: 'completed',
+        createdAt: { gte: new Date(`${year}-01-01`), lte: new Date(`${year}-12-31`) },
+      },
       select: { amount: true, createdAt: true, currency: true },
     });
     const monthly: Record<string, number> = {};
@@ -106,6 +133,10 @@ export class AdminController {
       const month = new Date(p.createdAt).toISOString().slice(0, 7);
       monthly[month] = (monthly[month] || 0) + Number(p.amount);
     });
-    return successResponse({ year, monthly, total: payments.reduce((sum, p) => sum + Number(p.amount), 0) });
+    return successResponse({
+      year,
+      monthly,
+      total: payments.reduce((sum, p) => sum + Number(p.amount), 0),
+    });
   }
 }

@@ -10,10 +10,10 @@ import { ChatService } from '../services/chat.service';
 
 @ApiTags('Chat')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'chat', version: '1' })
 export class ChatController {
-  constructor(private chatService: ChatService) { }
+  constructor(private chatService: ChatService) {}
 
   @Get('messages')
   @Permission(FEATURE_KEYS.CHAT_READ)

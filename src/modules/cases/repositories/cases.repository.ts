@@ -8,7 +8,8 @@ export class CasesRepository {
 
   async create(data: Prisma.CaseCreateInput) {
     return this.prisma.case.create({
-      data, include: { assignments: { include: { user: { include: { professional: true } } } } },
+      data,
+      include: { assignments: { include: { user: { include: { professional: true } } } } },
     });
   }
 
@@ -16,7 +17,9 @@ export class CasesRepository {
     return this.prisma.case.findUnique({
       where: { id, deletedAt: null },
       include: {
-        client: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+        client: {
+          select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
+        },
         organization: true,
         assignments: { include: { user: { include: { professional: true } } } },
         updates: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -24,18 +27,39 @@ export class CasesRepository {
     });
   }
 
-  async findAll(params: { skip?: number; take?: number; orgId?: string; clientId?: string; status?: CaseStatus; type?: CaseType; search?: string }) {
+  async findAll(params: {
+    skip?: number;
+    take?: number;
+    orgId?: string;
+    clientId?: string;
+    status?: CaseStatus;
+    type?: CaseType;
+    search?: string;
+  }) {
     const where: Prisma.CaseWhereInput = { deletedAt: null };
     if (params.orgId) where.orgId = params.orgId;
     if (params.clientId) where.clientId = params.clientId;
     if (params.status) where.status = params.status;
     if (params.type) where.type = params.type;
-    if (params.search) where.OR = [{ caseNumber: { contains: params.search, mode: 'insensitive' } }, { title: { contains: params.search, mode: 'insensitive' } }];
+    if (params.search)
+      where.OR = [
+        { caseNumber: { contains: params.search, mode: 'insensitive' } },
+        { title: { contains: params.search, mode: 'insensitive' } },
+      ];
 
     const [items, total] = await Promise.all([
       this.prisma.case.findMany({
-        where, skip: params.skip, take: params.take,
-        include: { client: { select: { id: true, firstName: true, lastName: true, email: true } }, assignments: { include: { user: { select: { id: true, firstName: true, lastName: true, professional: true } } } } },
+        where,
+        skip: params.skip,
+        take: params.take,
+        include: {
+          client: { select: { id: true, firstName: true, lastName: true, email: true } },
+          assignments: {
+            include: {
+              user: { select: { id: true, firstName: true, lastName: true, professional: true } },
+            },
+          },
+        },
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.case.count({ where }),

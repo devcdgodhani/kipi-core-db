@@ -31,10 +31,14 @@ export class AuditService {
   }
 
   async findAll(params: {
-    page?: number; limit?: number;
-    userId?: string; orgId?: string;
-    module?: string; action?: string;
-    from?: Date; to?: Date;
+    page?: number;
+    limit?: number;
+    userId?: string;
+    orgId?: string;
+    module?: string;
+    action?: string;
+    from?: Date;
+    to?: Date;
   }) {
     const dto = { page: params.page || 1, limit: params.limit || 20 };
     const { skip, take } = getPaginationParams(dto);

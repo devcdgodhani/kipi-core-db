@@ -1,5 +1,15 @@
 import {
-  Controller, Get, Post, Body, Query, HttpCode, HttpStatus, Headers, RawBodyRequest, Req, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Body,
+  Query,
+  HttpCode,
+  HttpStatus,
+  Headers,
+  RawBodyRequest,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
@@ -28,7 +38,7 @@ class VerifyPaymentDto {
 
 @ApiTags('Payments')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'payments', version: '1' })
 export class PaymentsController {
   constructor(private paymentsService: PaymentsService) {}
@@ -37,8 +47,15 @@ export class PaymentsController {
   @Permission(FEATURE_KEYS.BILLING_MANAGE)
   @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.BILLING })
   @ApiOperation({ summary: 'Create a Razorpay payment order' })
-  async createOrder(@Body() dto: CreateOrderDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
-    return successResponse(await this.paymentsService.createOrder(orgId, dto.planId, user.sub), 'Order created');
+  async createOrder(
+    @Body() dto: CreateOrderDto,
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return successResponse(
+      await this.paymentsService.createOrder(orgId, dto.planId, user.sub),
+      'Order created',
+    );
   }
 
   @Post('verify')
@@ -46,8 +63,20 @@ export class PaymentsController {
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.BILLING })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify payment and activate subscription' })
-  async verify(@Body() dto: VerifyPaymentDto, @OrgId() orgId: string, @CurrentUser() user: JwtPayload) {
-    return successResponse(await this.paymentsService.verifyAndActivate(orgId, user.sub, dto.razorpayOrderId, dto.razorpayPaymentId, dto.razorpaySignature));
+  async verify(
+    @Body() dto: VerifyPaymentDto,
+    @OrgId() orgId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return successResponse(
+      await this.paymentsService.verifyAndActivate(
+        orgId,
+        user.sub,
+        dto.razorpayOrderId,
+        dto.razorpayPaymentId,
+        dto.razorpaySignature,
+      ),
+    );
   }
 
   @Public()

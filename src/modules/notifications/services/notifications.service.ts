@@ -4,8 +4,13 @@ import { NotificationType } from '@prisma/client';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
 
 interface SendNotificationInput {
-  userId: string; type: NotificationType; title: string; body: string;
-  entityType?: string; entityId?: string; metadata?: any;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: any;
 }
 
 @Injectable()

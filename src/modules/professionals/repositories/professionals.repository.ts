@@ -11,25 +11,37 @@ export class ProfessionalsRepository {
       where: { userId },
       create: { userId, ...data },
       update: data,
-      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+      },
     });
   }
 
   async findByUserId(userId: string) {
     return this.prisma.professional.findUnique({
       where: { userId },
-      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+      },
     });
   }
 
   async findById(id: string) {
     return this.prisma.professional.findUnique({
       where: { id },
-      include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } },
+      include: {
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+      },
     });
   }
 
-  async findAll(params: { skip?: number; take?: number; type?: string; specialization?: string; city?: string }) {
+  async findAll(params: {
+    skip?: number;
+    take?: number;
+    type?: string;
+    specialization?: string;
+    city?: string;
+  }) {
     const where: any = { verificationStatus: 'verified', isAvailable: true };
     if (params.type) where.type = params.type;
     if (params.city) where.city = { contains: params.city, mode: 'insensitive' };
@@ -37,8 +49,14 @@ export class ProfessionalsRepository {
 
     const [items, total] = await Promise.all([
       this.prisma.professional.findMany({
-        where, skip: params.skip, take: params.take,
-        include: { user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } } },
+        where,
+        skip: params.skip,
+        take: params.take,
+        include: {
+          user: {
+            select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
+          },
+        },
         orderBy: { rating: 'desc' },
       }),
       this.prisma.professional.count({ where }),

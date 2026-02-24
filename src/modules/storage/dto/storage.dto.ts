@@ -5,7 +5,9 @@ export class CreateDirectoryDto {
   @ApiProperty({ example: 'case-documents', description: 'Directory name' })
   @IsString()
   @IsNotEmpty()
-  @Matches(/^[a-zA-Z0-9_\-\s]+$/, { message: 'Directory name can only contain letters, numbers, hyphens, underscores, and spaces' })
+  @Matches(/^[a-zA-Z0-9_\-\s]+$/, {
+    message: 'Directory name can only contain letters, numbers, hyphens, underscores, and spaces',
+  })
   name: string;
 
   @ApiPropertyOptional({ example: 'root', description: 'Parent directory path (omit for root)' })

@@ -5,7 +5,13 @@ import { PrismaService } from '../../../database/prisma.service';
 export class RolesPermissionsRepository {
   constructor(private prisma: PrismaService) {}
 
-  async createRole(data: { name: string; description?: string; orgId?: string; isSystem?: boolean; slug?: string }) {
+  async createRole(data: {
+    name: string;
+    description?: string;
+    orgId?: string;
+    isSystem?: boolean;
+    slug?: string;
+  }) {
     const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '_');
     const role = await this.prisma.role.create({
       data: {
@@ -64,7 +70,10 @@ export class RolesPermissionsRepository {
     });
   }
 
-  async setRolePermissions(roleId: string, permissionIds: { featureId: string; actionId: string }[]) {
+  async setRolePermissions(
+    roleId: string,
+    permissionIds: { featureId: string; actionId: string }[],
+  ) {
     // First, set all to false
     await this.prisma.rolePermission.updateMany({
       where: { roleId },
@@ -84,7 +93,9 @@ export class RolesPermissionsRepository {
 
   async assignUserRole(data: { userId: string; roleId: string; orgId: string }) {
     return this.prisma.userRole.upsert({
-      where: { userId_roleId_orgId: { userId: data.userId, roleId: data.roleId, orgId: data.orgId } },
+      where: {
+        userId_roleId_orgId: { userId: data.userId, roleId: data.roleId, orgId: data.orgId },
+      },
       create: data,
       update: {},
     });

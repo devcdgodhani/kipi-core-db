@@ -36,7 +36,10 @@ export class UsersRepository {
   }
 
   async softDelete(id: string) {
-    return this.prisma.user.update({ where: { id }, data: { deletedAt: new Date(), isActive: false } });
+    return this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date(), isActive: false },
+    });
   }
 
   async countByOrg(orgId: string) {

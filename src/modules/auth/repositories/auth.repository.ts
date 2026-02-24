@@ -47,6 +47,14 @@ export class AuthRepository {
     return this.prisma.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
   }
 
+  async markEmailVerified(userId: string) {
+    await this.prisma.user.update({ where: { id: userId }, data: { isVerified: true } });
+    await this.prisma.userSecurity.update({
+      where: { userId },
+      data: { emailVerifyToken: null, emailVerifyExpiry: null },
+    });
+  }
+
   async findByResetToken(tokenHash: string) {
     return this.prisma.userSecurity.findFirst({
       where: { passwordResetToken: tokenHash, passwordResetExpiry: { gt: new Date() } },

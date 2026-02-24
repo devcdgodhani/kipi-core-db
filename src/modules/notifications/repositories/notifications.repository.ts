@@ -3,8 +3,13 @@ import { PrismaService } from '../../../database/prisma.service';
 import { NotificationType } from '@prisma/client';
 
 interface CreateNotificationInput {
-  userId: string; type: NotificationType; title: string; body: string;
-  entityType?: string; entityId?: string; metadata?: any;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  entityType?: string;
+  entityId?: string;
+  metadata?: any;
 }
 
 @Injectable()
@@ -21,7 +26,12 @@ export class NotificationsRepository {
 
   async findByUser(userId: string, skip: number, take: number) {
     const [items, total] = await Promise.all([
-      this.prisma.notification.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, skip, take }),
+      this.prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
       this.prisma.notification.count({ where: { userId } }),
     ]);
     return { items, total };

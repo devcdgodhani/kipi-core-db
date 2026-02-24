@@ -1,6 +1,4 @@
-import {
-  Controller, Get, Post, Patch, Body, Param, Query, UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ProfessionalsService } from '../services/professionals.service';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
@@ -21,7 +19,11 @@ class CreateProfessionalProfileDto {
   @ApiPropertyOptional() @IsOptional() @IsString() bio?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() licenseNumber?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() barCouncil?: string;
-  @ApiPropertyOptional() @IsOptional() @IsArray() @IsString({ each: true }) specializations?: string[];
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  specializations?: string[];
   @ApiPropertyOptional() @IsOptional() experienceYears?: number;
   @ApiPropertyOptional() @IsOptional() @IsString() city?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() state?: string;
@@ -31,7 +33,7 @@ class CreateProfessionalProfileDto {
 
 @ApiTags('Professionals')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'professionals', version: '1' })
 export class ProfessionalsController {
   constructor(private professionalsService: ProfessionalsService) {}
@@ -61,7 +63,13 @@ export class ProfessionalsController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    const result = await this.professionalsService.findAll({ type, specialization, city, page: +page, limit: +limit });
+    const result = await this.professionalsService.findAll({
+      type,
+      specialization,
+      city,
+      page: +page,
+      limit: +limit,
+    });
     return successResponse(result);
   }
 

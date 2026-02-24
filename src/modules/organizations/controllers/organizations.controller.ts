@@ -1,5 +1,15 @@
 import {
-  Controller, Get, Post, Patch, Delete, Body, Param, Query, HttpCode, HttpStatus, UseGuards,
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { OrganizationsService } from '../services/organizations.service';
@@ -31,7 +41,7 @@ class InviteMemberDto {
 
 @ApiTags('Organizations')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'organizations', version: '1' })
 export class OrganizationsController {
   constructor(private orgsService: OrganizationsService) {}
@@ -63,7 +73,11 @@ export class OrganizationsController {
   @Permission(FEATURE_KEYS.ORG_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Update organization' })
-  async update(@Param('id') id: string, @Body() dto: Partial<CreateOrgDto>, @CurrentUser() user: JwtPayload) {
+  async update(
+    @Param('id') id: string,
+    @Body() dto: Partial<CreateOrgDto>,
+    @CurrentUser() user: JwtPayload,
+  ) {
     const result = await this.orgsService.update(id, dto, user.sub);
     return successResponse(result, 'Organization updated');
   }
@@ -80,7 +94,11 @@ export class OrganizationsController {
   @Permission(FEATURE_KEYS.TEAM_INVITE)
   @Audit({ action: ACTION_KEYS.INVITE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Invite a member to organization' })
-  async invite(@Param('id') id: string, @Body() dto: InviteMemberDto, @CurrentUser() user: JwtPayload) {
+  async invite(
+    @Param('id') id: string,
+    @Body() dto: InviteMemberDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
     const result = await this.orgsService.invite(id, dto.email, dto.role, user.sub);
     return successResponse(result, 'Invitation sent');
   }
@@ -98,7 +116,11 @@ export class OrganizationsController {
   @Permission(FEATURE_KEYS.TEAM_REMOVE)
   @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Remove a member from organization' })
-  async removeMember(@Param('id') id: string, @Param('userId') userId: string, @CurrentUser() actor: JwtPayload) {
+  async removeMember(
+    @Param('id') id: string,
+    @Param('userId') userId: string,
+    @CurrentUser() actor: JwtPayload,
+  ) {
     const result = await this.orgsService.removeMember(id, userId, actor.sub);
     return successResponse(result, 'Member removed');
   }

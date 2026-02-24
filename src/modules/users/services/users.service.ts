@@ -1,6 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { UsersRepository } from '../repositories/users.repository';
-import { PaginationDto, buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
+import {
+  PaginationDto,
+  buildPaginatedResponse,
+  getPaginationParams,
+} from '../../../common/utils/pagination.util';
 
 @Injectable()
 export class UsersService {
@@ -30,7 +34,10 @@ export class UsersService {
     return buildPaginatedResponse(users, total, dto);
   }
 
-  async update(id: string, data: { firstName?: string; lastName?: string; phone?: string; avatar?: string }) {
+  async update(
+    id: string,
+    data: { firstName?: string; lastName?: string; phone?: string; avatar?: string },
+  ) {
     await this.findById(id);
     return this.usersRepository.update(id, data);
   }

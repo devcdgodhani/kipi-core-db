@@ -12,10 +12,10 @@ import { FEATURE_KEYS } from '../../../common/constants/permissions.constants';
 
 @ApiTags('Audit')
 @ApiBearerAuth('accessToken')
-  @UseGuards(PermissionGuard)
+@UseGuards(PermissionGuard)
 @Controller({ path: 'audit', version: '1' })
 export class AuditController {
-  constructor(private auditService: AuditService) { }
+  constructor(private auditService: AuditService) {}
 
   @Get()
   @Permission(FEATURE_KEYS.AUDIT_VIEW)
@@ -45,7 +45,11 @@ export class AuditController {
     @Query('page') page = 1,
     @Query('limit') limit = 20,
   ) {
-    const result = await this.auditService.findAll({ userId: user.sub, page: +page, limit: +limit });
+    const result = await this.auditService.findAll({
+      userId: user.sub,
+      page: +page,
+      limit: +limit,
+    });
     return successResponse(result);
   }
 }

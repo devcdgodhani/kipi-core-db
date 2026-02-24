@@ -2,9 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 
 interface LogAuditInput {
-  userId?: string; orgId?: string; module: string; action: string;
-  entityType?: string; entityId?: string; oldData?: any; newData?: any;
-  ipAddress?: string; userAgent?: string; metadata?: any;
+  userId?: string;
+  orgId?: string;
+  module: string;
+  action: string;
+  entityType?: string;
+  entityId?: string;
+  oldData?: any;
+  newData?: any;
+  ipAddress?: string;
+  userAgent?: string;
+  metadata?: any;
 }
 
 @Injectable()
@@ -16,10 +24,14 @@ export class AuditRepository {
   }
 
   async findAll(params: {
-    skip?: number; take?: number;
-    userId?: string; orgId?: string;
-    module?: string; action?: string;
-    from?: Date; to?: Date;
+    skip?: number;
+    take?: number;
+    userId?: string;
+    orgId?: string;
+    module?: string;
+    action?: string;
+    from?: Date;
+    to?: Date;
   }) {
     const where: any = {};
     if (params.userId) where.userId = params.userId;
@@ -34,7 +46,9 @@ export class AuditRepository {
 
     const [logs, total] = await Promise.all([
       this.prisma.auditLog.findMany({
-        skip: params.skip, take: params.take, where,
+        skip: params.skip,
+        take: params.take,
+        where,
         include: { user: { select: { id: true, email: true, firstName: true, lastName: true } } },
         orderBy: { createdAt: 'desc' },
       }),

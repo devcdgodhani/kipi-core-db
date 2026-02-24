@@ -66,7 +66,8 @@ export class ChatService {
   async deleteMessage(userId: string, orgId: string, messageId: string) {
     const message = await this.repository.findById(messageId);
     if (!message) throw new NotFoundException('Message not found');
-    if (message.senderId !== userId) throw new ForbiddenException('Not authorized to delete this message');
+    if (message.senderId !== userId)
+      throw new ForbiddenException('Not authorized to delete this message');
 
     const deleted = await this.repository.softDelete(messageId);
 

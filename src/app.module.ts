@@ -35,6 +35,8 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AuditModule } from './modules/audit/audit.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { StorageModule } from './modules/storage/storage.module';
+import { MailModule } from './modules/mail/mail.module';
+import mailConfig from './config/mail.config';
 
 @Module({
   imports: [
@@ -42,7 +44,15 @@ import { StorageModule } from './modules/storage/storage.module';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['.env.local', '.env'],
-      load: [appConfig, databaseConfig, jwtConfig, redisConfig, awsConfig, paymentConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        redisConfig,
+        awsConfig,
+        paymentConfig,
+        mailConfig,
+      ],
       expandVariables: true,
     }),
 
@@ -76,6 +86,7 @@ import { StorageModule } from './modules/storage/storage.module';
     AuditModule,
     AdminModule,
     StorageModule,
+    MailModule,
   ],
   providers: [
     // Global rate-limiter guard
@@ -86,4 +97,4 @@ import { StorageModule } from './modules/storage/storage.module';
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
 })
-export class AppModule { }
+export class AppModule {}

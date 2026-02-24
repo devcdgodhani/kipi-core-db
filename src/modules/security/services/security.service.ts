@@ -16,7 +16,7 @@ export class SecurityService {
   async getMfaStatus(userId: string) {
     const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
     return {
-      mfaEnabled: security?.mfaEnabled || false,
+      enabled: security?.mfaEnabled || false,
       backupCodesCount: security?.mfaBackupCodes?.length || 0,
     };
   }
@@ -32,7 +32,13 @@ export class SecurityService {
       where: { userId },
       data: { mfaEnabled: false, mfaSecret: null, mfaBackupCodes: [] },
     });
-    await this.auditService.log({ userId, module: 'security', action: 'mfa_disabled', entityType: 'user', entityId: userId });
+    await this.auditService.log({
+      userId,
+      module: 'security',
+      action: 'mfa_disabled',
+      entityType: 'user',
+      entityId: userId,
+    });
     return { message: 'MFA disabled successfully' };
   }
 
@@ -42,17 +48,26 @@ export class SecurityService {
 
     const newCodes = generateBackupCodes(SYSTEM_CONSTANTS.BACKUP_CODE_COUNT);
     const hashedCodes = newCodes.map((code) => hashToken(code));
-    await this.prisma.userSecurity.update({ where: { userId }, data: { mfaBackupCodes: hashedCodes } });
-    await this.auditService.log({ userId, module: 'security', action: 'backup_codes_regenerated', entityType: 'user', entityId: userId });
+    await this.prisma.userSecurity.update({
+      where: { userId },
+      data: { mfaBackupCodes: hashedCodes },
+    });
+    await this.auditService.log({
+      userId,
+      module: 'security',
+      action: 'backup_codes_regenerated',
+      entityType: 'user',
+      entityId: userId,
+    });
     return { backupCodes: newCodes };
   }
 
   async getSessions(userId: string) {
     // In a real implementation this would query an active sessions table
     const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
-    return {
-      sessions: security?.refreshTokenHash ? [{ id: 'current', active: true, lastSeen: new Date() }] : [],
-    };
+    return security?.refreshTokenHash
+      ? [{ id: 'current', active: true, lastSeen: new Date() }]
+      : [];
   }
 
   async revokeSession(userId: string, sessionId: string) {
@@ -64,7 +79,13 @@ export class SecurityService {
   async revokeAllSessions(userId: string) {
     await this.prisma.userSecurity.update({ where: { userId }, data: { refreshTokenHash: null } });
     await this.redisService.delPattern(`jl:permissions:${userId}:*`);
-    await this.auditService.log({ userId, module: 'security', action: 'all_sessions_revoked', entityType: 'user', entityId: userId });
+    await this.auditService.log({
+      userId,
+      module: 'security',
+      action: 'all_sessions_revoked',
+      entityType: 'user',
+      entityId: userId,
+    });
     return { message: 'All sessions revoked. Please log in again.' };
   }
 }

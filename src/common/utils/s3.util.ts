@@ -73,7 +73,10 @@ export async function uploadFileToS3(
 /**
  * Delete a single object from S3.
  */
-export async function deleteFileFromS3(key: string, bucket: string = process.env.AWS_S3_BUCKET!): Promise<void> {
+export async function deleteFileFromS3(
+  key: string,
+  bucket: string = process.env.AWS_S3_BUCKET!,
+): Promise<void> {
   const command = new DeleteObjectCommand({ Bucket: bucket, Key: key });
   await getS3Client().send(command);
 }
@@ -81,7 +84,10 @@ export async function deleteFileFromS3(key: string, bucket: string = process.env
 /**
  * Delete a folder marker from S3.
  */
-export async function deleteFolderFromS3(folderPath: string, bucket: string = process.env.AWS_S3_BUCKET!): Promise<void> {
+export async function deleteFolderFromS3(
+  folderPath: string,
+  bucket: string = process.env.AWS_S3_BUCKET!,
+): Promise<void> {
   const key = folderPath.endsWith('/') ? folderPath : `${folderPath}/`;
   await deleteFileFromS3(key, bucket);
 }

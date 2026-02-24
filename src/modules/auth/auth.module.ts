@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { UsersModule } from '../users/users.module';
 import { AuditModule } from '../audit/audit.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AuditModule } from '../audit/audit.module';
     }),
     UsersModule,
     AuditModule,
+    MailModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthRepository, JwtStrategy, JwtRefreshStrategy],
