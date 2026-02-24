@@ -34,6 +34,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { AuditModule } from './modules/audit/audit.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { StorageModule } from './modules/storage/storage.module';
 
 @Module({
   imports: [
@@ -74,6 +75,7 @@ import { AdminModule } from './modules/admin/admin.module';
     NotificationsModule,
     AuditModule,
     AdminModule,
+    StorageModule,
   ],
   providers: [
     // Global rate-limiter guard

@@ -20,8 +20,7 @@ datasource db {
 
 enum UserType {
   client
-  advocate
-  detective
+  professional
   super_admin
 }
 
@@ -119,6 +118,15 @@ enum DocumentType {
   other
 }
 
+enum FileType {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+  DIRECTORY
+}
+
 // ─────────────────────────────────────────────────────────────
 // USER & SECURITY
 // ─────────────────────────────────────────────────────────────
@@ -126,7 +134,7 @@ enum DocumentType {
 model User {
   id          String    @id @default(uuid())
   email       String    @unique
-  phone       String?   @unique
+  phone       String?  
   firstName   String
   lastName    String
   avatar      String?
@@ -150,6 +158,8 @@ model User {
   notifications   Notification[]
   auditLogs       AuditLog[]          @relation("AuditUser")
   payments        Payment[]
+  fileStorages    FileStorage[]
+  fileDirectories FileDirectory[]
 
   @@index([email])
   @@index([userType])
@@ -244,6 +254,8 @@ model Organization {
   roles         Role[]
   payments      Payment[]
   auditLogs     AuditLog[]    @relation("AuditOrg")
+  fileStorages  FileStorage[]
+  fileDirectories FileDirectory[]
 
   @@index([slug])
   @@index([type])
@@ -580,9 +592,11 @@ model CaseDocument {
   mimeType     String?
   sizeBytes    Int?
   isConfidential Boolean    @default(false)
-  createdAt    DateTime     @default(now())
+  fileStorageId  String?    // Reference to FileStorage record
+  createdAt      DateTime   @default(now())
 
-  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  case        Case          @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fileStorage FileStorage?  @relation(fields: [fileStorageId], references: [id])
 
   @@index([caseId])
   @@map("case_documents")
@@ -663,4 +677,53 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────
+// FILE STORAGE & MANAGER
+// ─────────────────────────────────────────────────────────────
+
+model FileStorage {
+  id               String   @id @default(uuid())
+  orgId            String
+  userId           String
+  originalFileName String
+  storageFileName  String   @unique
+  storageDirPath   String   @default("")
+  storageDir       String   @default("")
+  fileSize         Int?
+  fileExtension    String?
+  fileType         FileType
+  status           String   @default("ACTIVE")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization  Organization   @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id])
+  caseDocuments CaseDocument[]
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([storageDirPath])
+  @@map("file_storage")
+}
+
+model FileDirectory {
+  id         String   @id @default(uuid())
+  orgId      String
+  userId     String
+  name       String
+  path       String
+  parentPath String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, path])
+  @@index([orgId])
+  @@index([userId])
+  @@index([parentPath])
+  @@map("file_directories")
 }

@@ -51,6 +51,13 @@ export const FEATURE_KEYS = {
   ADMIN_MANAGE: 'admin.manage',
   // Security
   SECURITY_MANAGE: 'security.manage',
+  // Storage
+  STORAGE_READ: 'storage.read',
+  STORAGE_CREATE: 'storage.create',
+  STORAGE_UPDATE: 'storage.update',
+  STORAGE_DELETE: 'storage.delete',
+  STORAGE_UPLOAD: 'storage.upload',
+  STORAGE_DOWNLOAD: 'storage.download',
 } as const;
 
 /**
