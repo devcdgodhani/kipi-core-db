@@ -1,4 +1,15 @@
-import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus, Ip, Headers, Req } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Ip,
+  Headers,
+  Req,
+} from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import {
@@ -86,7 +97,11 @@ export class AuthController {
   @Post('mfa/backup-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login using MFA backup code' })
-  async verifyMfaBackupCode(@Body() dto: MfaBackupCodeDto, @Ip() ip: string, @Headers('user-agent') ua: string) {
+  async verifyMfaBackupCode(
+    @Body() dto: MfaBackupCodeDto,
+    @Ip() ip: string,
+    @Headers('user-agent') ua: string,
+  ) {
     const result = await this.authService.verifyMfaBackupCode(dto, ip, ua);
     return successResponse(result, 'Backup code verification successful');
   }

@@ -11,6 +11,7 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { SYSTEM_ROLES } from '../constants/roles.constants';
 import { RedisService } from '../../database/redis.service';
 import { JwtPayload } from '../../modules/auth/interfaces/jwt-payload.interface';
+import { RolesPermissionsService } from '../../modules/roles-permissions/services/roles-permissions.service';
 
 /**
  * Enterprise RBAC Permission Guard
@@ -20,13 +21,14 @@ import { JwtPayload } from '../../modules/auth/interfaces/jwt-payload.interface'
  * 2. Is user super_admin? → allow
  * 3. Does org have an active subscription? → check Redis cache
  * 4. Is the required module included in the plan?
- * 5. Does user's role have the required permission? (Redis cache)
+ * 5. Does user's role have the required permission? (Redis cache / DB rebuild)
  */
 @Injectable()
 export class PermissionGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     private redisService: RedisService,
+    private rolesPermissionsService: RolesPermissionsService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -71,28 +73,31 @@ export class PermissionGuard implements CanActivate {
       // STEP 3: module allowed in plan
       if (subscription?.modules) {
         for (const permission of requiredPermissions) {
-          const moduleKey = permission.split('.')[0];
-          if (!subscription.modules.includes(moduleKey)) {
+          // In the new model, module keys might be prefixed, e.g. 'main.cases'
+          // We check if any part of the permission key overlaps with allowed modules
+          const parts = permission.split('.');
+          const isAllowed = parts.some((part) => subscription.modules.includes(part));
+
+          if (!isAllowed) {
             throw new ForbiddenException(
-              `Module '${moduleKey}' is not available in your current plan`,
+              `Module including '${parts[0]}' is not available in your current plan`,
             );
           }
         }
       }
-
-      // STEP 4: feature limit not exceeded
-      // Note: Full limit check often requires querying DB for current count (e.g. SELECT count(*) FROM cases WHERE orgId = ...)
-      // Here we check if the limit exists in the plan metadata as a prerequisite.
-      if (subscription?.limits) {
-        // Example check for specific module limits if applicable
-        // This can be expanded based on specific feature requirements
-      }
     }
 
     // STEP 5: role permission allowed
-    // Check role permissions from Redis cache
     const permCacheKey = `jl:permissions:${user.sub}:${orgId || 'system'}`;
-    const cachedPermissions = await this.redisService.get<string[]>(permCacheKey);
+    let cachedPermissions = await this.redisService.get<string[]>(permCacheKey);
+
+    // If no cache, rebuild it from DB
+    if (!cachedPermissions) {
+      cachedPermissions = await this.rolesPermissionsService.rebuildUserPermissionsCache(
+        user.sub,
+        orgId,
+      );
+    }
 
     if (cachedPermissions) {
       const hasPermission = requiredPermissions.every((perm) => cachedPermissions.includes(perm));
@@ -102,7 +107,6 @@ export class PermissionGuard implements CanActivate {
       return true;
     }
 
-    // If no cache, allow (in production, this would trigger a cache rebuild from DB)
-    return true;
+    return false;
   }
 }

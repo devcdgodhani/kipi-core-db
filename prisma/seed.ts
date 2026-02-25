@@ -1,12 +1,12 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, AppType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding JusticeLynk database...');
+  console.log('🌱 Seeding JusticeLynk enterprise database...');
 
-  // ── Upsert Super Admin user ──────────────────────────────
+  // ── 1. Create Super Admin User ─────────────────────────────
   const passwordHash = await bcrypt.hash('Admin@JL2024!', 12);
 
   const superAdmin = await prisma.user.upsert({
@@ -14,7 +14,7 @@ async function main() {
     update: {},
     create: {
       email: 'admin@justicelynk.com',
-      firstName: 'Super',
+      firstName: 'JusticeLynk',
       lastName: 'Admin',
       userType: 'super_admin',
       isActive: true,
@@ -30,143 +30,195 @@ async function main() {
   });
   console.log(`✅ Super Admin: ${superAdmin.email}`);
 
-  // ── Create Modules, Features, & Actions from Constants ────────
-  const moduleData = [
-    { key: 'cases', name: 'Case Management', description: 'Manage legal cases' },
-    { key: 'organizations', name: 'Organizations', description: 'Manage organizations' },
-    { key: 'billing', name: 'Billing', description: 'Subscription and payments' },
-    { key: 'chat', name: 'Chat & Messaging', description: 'Real-time messaging' },
-    { key: 'documents', name: 'Documents', description: 'Case document management' },
-    { key: 'analytics', name: 'Reports & Analytics', description: 'Analytics and reporting' },
-    { key: 'audit', name: 'Audit Logs', description: 'System audit trails' },
-    { key: 'professionals', name: 'Professionals', description: 'Manage professionals' },
-    { key: 'admin', name: 'Administration', description: 'Platform administration' },
-    { key: 'roles', name: 'Roles & Permissions', description: 'Manage roles' },
-    { key: 'subscription', name: 'Subscriptions', description: 'Manage plans' },
-    { key: 'security', name: 'Security', description: 'MFA and security settings' },
+  // ── 2. Define App Modules, Screens & Actions ───────────────
+  const appsData = [
+    {
+      appType: AppType.ADMIN_WEB,
+      modules: [
+        {
+          key: 'admin.dashboard',
+          name: 'Admin Dashboard',
+          screens: [
+            { key: 'admin.overview', name: 'Overview', path: '/admin', actions: ['read', 'export'] },
+          ],
+        },
+        {
+          key: 'admin.users',
+          name: 'User Management',
+          screens: [
+            { key: 'admin.users.list', name: 'User Management', path: '/admin/users', actions: ['read', 'create', 'update', 'delete', 'suspend'] },
+            { key: 'admin.users.details', name: 'User Details', path: '/admin/users/[id]', actions: ['read', 'update', 'reset_password'] },
+          ],
+        },
+        {
+          key: 'admin.organizations',
+          name: 'Organization Management',
+          screens: [
+            { key: 'admin.orgs.list', name: 'Organizations', path: '/admin/organizations', actions: ['read', 'create', 'update', 'delete'] },
+            { key: 'admin.orgs.create', name: 'New Organization', path: '/admin/organizations/new', actions: ['read', 'create'] },
+            { key: 'admin.orgs.details', name: 'Organization Details', path: '/admin/organizations/[id]', actions: ['read', 'update', 'verify', 'suspend'] },
+          ],
+        },
+        {
+          key: 'admin.professionals',
+          name: 'Professional Verification',
+          screens: [
+            { key: 'admin.professionals.list', name: 'Professionals', path: '/admin/professionals', actions: ['read', 'verify', 'reject'] },
+            { key: 'admin.professionals.details', name: 'Professional Details', path: '/admin/professionals/[id]', actions: ['read', 'update'] },
+          ],
+        },
+      ],
+    },
+    {
+      appType: AppType.MAIN_WEB,
+      modules: [
+        {
+          key: 'main.dashboard',
+          name: 'Dashboard',
+          screens: [
+            { key: 'dashboard.overview', name: 'Dashboard', path: '/dashboard', actions: ['read'] },
+          ],
+        },
+        {
+          key: 'main.cases',
+          name: 'Case Management',
+          screens: [
+            { key: 'cases.list', name: 'Case Portfolio', path: '/cases', actions: ['read', 'create', 'export'] },
+            { key: 'cases.details', name: 'Case Details', path: '/cases/[id]', actions: ['read', 'update', 'assign', 'close', 'delete'] },
+            { key: 'cases.create', name: 'New Case', path: '/cases/create', actions: ['read', 'create'] },
+          ],
+        },
+        {
+          key: 'main.organizations',
+          name: 'Organization',
+          screens: [
+            { key: 'organization.settings', name: 'Organization Settings', path: '/organization', actions: ['read', 'update', 'manage'] },
+          ],
+        },
+        {
+          key: 'main.team',
+          name: 'Team & Members',
+          screens: [
+            { key: 'team.list', name: 'Team Members', path: '/organization/members', actions: ['read', 'invite', 'remove', 'update'] },
+            { key: 'team.roles', name: 'Roles & Permissions', path: '/organization/roles', actions: ['read', 'create', 'update', 'delete'] },
+          ],
+        },
+        {
+          key: 'main.billing',
+          name: 'Billing & Plans',
+          screens: [
+            { key: 'billing.overview', name: 'Billing', path: '/billing', actions: ['read', 'manage'] },
+          ],
+        },
+        {
+          key: 'main.chat',
+          name: 'Justice Chat',
+          screens: [
+            { key: 'chat.hub', name: 'Message Center', path: '/chat', actions: ['read', 'send', 'delete'] },
+          ],
+        },
+        {
+          key: 'main.professionals',
+          name: 'Marketplace',
+          screens: [
+            { key: 'professionals.marketplace', name: 'Professionals', path: '/professionals', actions: ['read', 'hire'] },
+          ],
+        },
+        {
+          key: 'main.notifications',
+          name: 'Notifications',
+          screens: [
+            { key: 'notifications.center', name: 'Notifications', path: '/notifications', actions: ['read', 'update', 'delete'] },
+          ],
+        },
+        {
+          key: 'main.settings',
+          name: 'Account Settings',
+          screens: [
+            { key: 'user.settings', name: 'Security & Settings', path: '/settings', actions: ['read', 'update'] },
+          ],
+        },
+      ],
+    },
   ];
 
-  const actionData = [
-    { key: 'create', name: 'Create' },
-    { key: 'read', name: 'Read' },
-    { key: 'update', name: 'Update' },
-    { key: 'delete', name: 'Delete' },
-    { key: 'manage', name: 'Manage' },
-    { key: 'export', name: 'Export' },
-    { key: 'import', name: 'Import' },
-    { key: 'assign', name: 'Assign' },
-    { key: 'close', name: 'Close' },
-    { key: 'send', name: 'Send' },
-    { key: 'upload', name: 'Upload' },
-    { key: 'download', name: 'Download' },
-    { key: 'invite', name: 'Invite' },
-    { key: 'hire', name: 'Hire' },
-  ];
-
-  for (const mod of moduleData) {
-    const upsertedModule = await prisma.module.upsert({
-      where: { key: mod.key },
-      update: { name: mod.name, description: mod.description },
-      create: { ...mod, isActive: true },
-    });
-
-    // Create a generic feature for the module if it doesn't have specific ones
-    const featureKey = `${mod.key}.main`;
-    const feature = await prisma.feature.upsert({
-      where: { key: featureKey },
-      update: { name: `${mod.name} Main` },
-      create: {
-        key: featureKey,
-        name: `${mod.name} Main`,
-        moduleId: upsertedModule.id,
-      },
-    });
-
-    // Seed actions for this feature
-    for (const action of actionData) {
-      await prisma.action.upsert({
-        where: { featureId_key: { featureId: feature.id, key: action.key } },
-        update: { name: action.name },
-        create: {
-          key: action.key,
-          name: action.name,
-          featureId: feature.id,
-            }
-        });
-    }
-  }
-  console.log(`✅ Created modules, features, and actions`);
-
-  // ── Create Subscription Plans ─────────────────────────────
-  // ... (plans logic remains, but we add mapping later)
-  const plansData = [
-    { name: 'Starter', slug: 'starter', description: 'For individuals and solo lawyers', price: 0, billingInterval: 'monthly', trialDays: 14, isActive: true, isPublic: true },
-    { name: 'Professional', slug: 'professional', description: 'For small law firms', price: 2999, billingInterval: 'monthly', trialDays: 7, isActive: true, isPublic: true },
-    { name: 'Enterprise', slug: 'enterprise', description: 'For large organizations', price: 9999, billingInterval: 'monthly', trialDays: 0, isActive: true, isPublic: true },
-  ];
-
-  for (const plan of plansData) {
-    const upsertedPlan = await prisma.subscriptionPlan.upsert({
-      where: { slug: plan.slug },
-      update: {},
-      create: plan as any,
-    });
-
-    // Attach all modules to the plan for seeding purposes
-    // In production, this would be specific per plan
-    const allModules = await prisma.module.findMany();
-    for (const mod of allModules) {
-      await prisma.planModule.upsert({
-        where: { planId_moduleId: { planId: upsertedPlan.id, moduleId: mod.id } },
-        update: {},
-        create: { planId: upsertedPlan.id, moduleId: mod.id }
+  for (const app of appsData) {
+    for (const mod of app.modules) {
+      // Create/Upsert Module
+      const upsertedMod = await prisma.module.upsert({
+        where: { key: mod.key },
+        update: { name: mod.name, appType: app.appType },
+        create: { key: mod.key, name: mod.name, appType: app.appType },
       });
-    }
-  }
-  console.log(`✅ Created subscription plans and module associations`);
 
-  // ── Create System Roles & Permissions Automation ──────────
-  const roles = [
-    { name: 'Super Admin', slug: 'super_admin', description: 'Full platform access', isSystem: true },
-    { name: 'Org Admin', slug: 'org_admin', description: 'Organization administrator', isSystem: true },
-    { name: 'Org Member', slug: 'org_member', description: 'Organization member', isSystem: true },
-    { name: 'Lawyer', slug: 'lawyer', description: 'Legal professional', isSystem: true },
-    { name: 'Client', slug: 'client', description: 'End client', isSystem: true },
-  ];
+      for (const scr of mod.screens) {
+        // Create/Upsert Screen
+        const upsertedScr = await prisma.screen.upsert({
+          where: { key: scr.key },
+          update: { name: scr.name, path: scr.path, moduleId: upsertedMod.id },
+          create: { key: scr.key, name: scr.name, path: scr.path, moduleId: upsertedMod.id },
+        });
 
-  const allFeatures = await prisma.feature.findMany({ include: { actions: true } });
-
-  for (const roleDef of roles) {
-    const role = await prisma.role.upsert({
-      where: { orgId_slug: { orgId: null, slug: roleDef.slug } },
-      update: { name: roleDef.name, description: roleDef.description },
-      create: { ...roleDef, orgId: null },
-    });
-
-    // Auto-map ALL existing features and actions to every role
-    // Default: Super Admin gets all granted: true, others granted: false
-    for (const feature of allFeatures) {
-      for (const action of feature.actions) {
-        await prisma.rolePermission.upsert({
-          where: { roleId_featureId_actionId: { roleId: role.id, featureId: feature.id, actionId: action.id } },
-          update: {},
-              create: {
-                roleId: role.id,
-                featureId: feature.id,
-                actionId: action.id,
-                granted: role.slug === 'super_admin', // Only super admin gets everything enabled by default
-              }
-            });
+        // Create/Upsert Actions for this Screen
+        for (const actionKey of scr.actions) {
+          await prisma.action.upsert({
+            where: { screenId_key: { screenId: upsertedScr.id, key: actionKey } },
+            update: { name: actionKey.charAt(0).toUpperCase() + actionKey.slice(1) },
+            create: {
+              screenId: upsertedScr.id,
+              key: actionKey,
+              name: actionKey.charAt(0).toUpperCase() + actionKey.slice(1),
+            },
+          });
+        }
       }
     }
   }
+  console.log('✅ Modules, Screens, and Actions seeded for all apps.');
 
-  console.log(`✅ Created ${roles.length} system roles`);
+  // ── 3. Create System Roles & Grant All to Super Admin ─────────
+  const rolesData = [
+    { name: 'Super Admin', slug: 'super_admin', description: 'Full platform access', isSystem: true },
+  ];
 
-  console.log('\n🎉 Seeding complete!');
-  console.log('📧 Admin Email: admin@justicelynk.com');
-  console.log('🔑 Admin Password: Admin@JL2024!');
-  console.log('⚠️  Please change the admin password immediately after first login!');
+  for (const roleDef of rolesData) {
+    let role = await prisma.role.findFirst({
+      where: { orgId: null, slug: roleDef.slug },
+    });
+
+    if (role) {
+      role = await prisma.role.update({
+        where: { id: role.id },
+        data: { name: roleDef.name, description: roleDef.description },
+      });
+    } else {
+      role = await prisma.role.create({
+        data: { ...roleDef, orgId: null },
+      });
+    }
+
+    // Super Admin gets EVERYTHING (Screen-based)
+    if (role.slug === 'super_admin') {
+      const allScreens = await prisma.screen.findMany({ include: { actions: true } });
+      for (const screen of allScreens) {
+        for (const action of screen.actions) {
+          await prisma.rolePermission.upsert({
+            where: { roleId_screenId_actionId: { roleId: role.id, screenId: screen.id, actionId: action.id } },
+            update: { granted: true },
+            create: {
+              roleId: role.id,
+              screenId: screen.id,
+              actionId: action.id,
+              granted: true,
+            },
+          });
+        }
+      }
+    }
+  }
+  console.log(`✅ System roles seeded.`);
+
+  console.log('\n🎉 Enterprise seeding complete!');
 }
 
 main()

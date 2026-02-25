@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { CasesRepository } from '../repositories/cases.repository';
 import { AuditService } from '../../audit/services/audit.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
-import { CaseStatus, CaseType } from '@prisma/client';
+import { CaseStatus, CaseType, AppType } from '@prisma/client';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
 
 @Injectable()
@@ -32,6 +32,7 @@ export class CasesService {
     await this.auditService.log({
       userId: clientId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'cases',
       action: 'create',
       entityType: 'case',
@@ -65,6 +66,7 @@ export class CasesService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'cases',
       action: 'update',
       entityType: 'case',
@@ -95,6 +97,7 @@ export class CasesService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'cases',
       action: 'update_status',
       entityType: 'case',
@@ -116,6 +119,7 @@ export class CasesService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'cases',
       action: 'assign_professional',
       entityType: 'case',

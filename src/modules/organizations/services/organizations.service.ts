@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   ConflictException,
 } from '@nestjs/common';
+import { AppType } from '@prisma/client';
 import { OrganizationsRepository } from '../repositories/organizations.repository';
 import { AuditService } from '../../audit/services/audit.service';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
@@ -26,6 +27,7 @@ export class OrganizationsService {
     await this.auditService.log({
       userId,
       orgId: org.id,
+      appType: AppType.MAIN_WEB,
       module: 'organizations',
       action: 'create',
       entityType: 'organization',
@@ -51,6 +53,7 @@ export class OrganizationsService {
     await this.auditService.log({
       userId,
       orgId: id,
+      appType: AppType.MAIN_WEB,
       module: 'organizations',
       action: 'update',
       entityType: 'organization',

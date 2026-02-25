@@ -8,6 +8,7 @@ import {
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
+import { AppType } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as speakeasy from 'speakeasy';
@@ -83,6 +84,7 @@ export class AuthService {
 
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'register',
       entityType: 'user',
@@ -135,6 +137,7 @@ export class AuthService {
       await this._sendVerificationOtp(user.email, user.firstName, 'login');
       await this.auditService.log({
         userId: user.id,
+        appType: AppType.MAIN_WEB,
         module: 'auth',
         action: 'login_email_verify_required',
         entityType: 'user',
@@ -157,6 +160,7 @@ export class AuthService {
       await this.redisService.set(`jl:mfa:temp:${mfaTemp}`, { userId: user.id }, 300);
       await this.auditService.log({
         userId: user.id,
+        appType: AppType.MAIN_WEB,
         module: 'auth',
         action: 'login_mfa_required',
         entityType: 'user',
@@ -178,6 +182,7 @@ export class AuthService {
     const tokens = await this._generateTokensWithSession(user, ipAddress, userAgent);
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'login',
       entityType: 'user',
@@ -220,6 +225,7 @@ export class AuthService {
     const tokens = await this.generateTokens({ ...user, isVerified: true });
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'email_verified',
       entityType: 'user',
@@ -286,6 +292,7 @@ export class AuthService {
     const tokens = await this._generateTokensWithSession(user, ipAddress, userAgent, true);
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'mfa_verified',
       entityType: 'user',
@@ -341,6 +348,7 @@ export class AuthService {
     await this.mailService.sendForgotPasswordOtp(user.email, user.firstName, otp);
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'forgot_password_otp_sent',
       entityType: 'user',
@@ -406,6 +414,7 @@ export class AuthService {
     await this.mailService.sendPasswordChangedConfirmation(user.email, user.firstName);
     await this.auditService.log({
       userId: user.id,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'password_reset',
       entityType: 'user',
@@ -444,6 +453,7 @@ export class AuthService {
 
     await this.auditService.log({
       userId: session.userId,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'token_refresh',
       entityType: 'user',
@@ -463,6 +473,7 @@ export class AuthService {
     await this.redisService.delPattern(`jl:permissions:${userId}:*`);
     await this.auditService.log({
       userId,
+      appType: AppType.MAIN_WEB,
       module: 'auth',
       action: 'logout',
       entityType: 'user',

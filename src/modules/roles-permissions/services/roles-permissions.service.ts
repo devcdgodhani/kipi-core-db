@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AppType } from '@prisma/client';
 import { RolesPermissionsRepository } from '../repositories/roles-permissions.repository';
 import { RedisService } from '../../../database/redis.service';
 import { AuditService } from '../../audit/services/audit.service';
@@ -16,6 +17,7 @@ export class RolesPermissionsService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'roles',
       action: 'create_role',
       entityType: 'role',
@@ -34,7 +36,7 @@ export class RolesPermissionsService {
 
   async grantPermissions(
     roleId: string,
-    permissions: { featureId: string; actionId: string }[],
+    permissions: { featureId?: string; screenId?: string; actionId: string }[],
     orgId: string,
     userId: string,
   ) {
@@ -44,6 +46,7 @@ export class RolesPermissionsService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'roles',
       action: 'grant_permissions',
       entityType: 'role',
@@ -60,6 +63,7 @@ export class RolesPermissionsService {
     await this.auditService.log({
       userId: assignedBy,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'roles',
       action: 'assign_role',
       entityType: 'user',
@@ -73,6 +77,34 @@ export class RolesPermissionsService {
     return this.repo.getUserRoles(userId, orgId);
   }
 
+  async rebuildUserPermissionsCache(userId: string, orgId: string) {
+    const userRoles = await this.repo.getUserRoles(userId, orgId);
+    const permissionsSet = new Set<string>();
+
+    for (const userRole of userRoles) {
+      const role = (userRole as any).role;
+      if (!role?.permissions) continue;
+
+      for (const perm of role.permissions) {
+        if (!perm.granted) continue;
+
+        let key = '';
+        if (perm.screenId && perm.screen) {
+          key = `${perm.screen.key}.${perm.action.key}`;
+        } else if (perm.featureId && perm.feature) {
+          key = `${perm.feature.key}.${perm.action.key}`;
+        }
+
+        if (key) permissionsSet.add(key);
+      }
+    }
+
+    const permissions = Array.from(permissionsSet);
+    const cacheKey = `jl:permissions:${userId}:${orgId || 'system'}`;
+    await this.redisService.set(cacheKey, permissions, 3600); // Cache for 1 hour
+    return permissions;
+  }
+
   async deleteRole(id: string, orgId: string, userId: string) {
     const role = await this.repo.findRoleById(id);
     if (!role) throw new NotFoundException('Role not found');
@@ -84,6 +116,7 @@ export class RolesPermissionsService {
     await this.auditService.log({
       userId,
       orgId,
+      appType: AppType.MAIN_WEB,
       module: 'roles',
       action: 'delete_role',
       entityType: 'role',

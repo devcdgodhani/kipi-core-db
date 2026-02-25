@@ -127,6 +127,11 @@ enum FileType {
   DIRECTORY
 }
 
+enum AppType {
+  ADMIN_WEB
+  MAIN_WEB
+}
+
 // ─────────────────────────────────────────────────────────────
 // USER & SECURITY
 // ─────────────────────────────────────────────────────────────
@@ -346,14 +351,35 @@ model Module {
   key         String   @unique
   name        String
   description String?
+  appType     AppType  @default(MAIN_WEB)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
 
   features    Feature[]
+  screens     Screen[]
   planModules PlanModule[]
 
   @@index([key])
+  @@index([appType])
   @@map("modules")
+}
+
+model Screen {
+  id          String   @id @default(uuid())
+  moduleId    String
+  key         String   @unique
+  name        String
+  description String?
+  path        String?  // Frontend route path for reference
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  actions     Action[]
+  permissions RolePermission[]
+
+  @@index([moduleId])
+  @@map("screens")
 }
 
 model Feature {
@@ -373,28 +399,34 @@ model Feature {
 
 model Action {
   id        String @id @default(uuid())
-  featureId String
+  screenId  String?
+  featureId String?
   key       String
   name      String
 
-  feature     Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  screen      Screen?          @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  feature     Feature?         @relation(fields: [featureId], references: [id], onDelete: Cascade)
   permissions RolePermission[]
 
-  @@unique([featureId, key])
+  @@unique([screenId, key], name: "screenId_key")
+  @@unique([featureId, key], name: "featureId_key")
   @@map("actions")
 }
 
 model RolePermission {
   id        String  @id @default(uuid())
   roleId    String
-  featureId String
+  screenId  String?
+  featureId String?
   actionId  String
   granted   Boolean @default(true)
 
   role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  screen  Screen? @relation(fields: [screenId], references: [id], onDelete: Cascade)
+  feature Feature? @relation(fields: [featureId], references: [id], onDelete: Cascade)
   action  Action  @relation(fields: [actionId], references: [id], onDelete: Cascade)
 
+  @@unique([roleId, screenId, actionId])
   @@unique([roleId, featureId, actionId])
   @@index([roleId])
   @@map("role_permissions")
@@ -674,6 +706,7 @@ model AuditLog {
   id         String   @id @default(uuid())
   userId     String?
   orgId      String?
+  appType    AppType  @default(MAIN_WEB)
   module     String
   action     String
   entityType String?
@@ -690,11 +723,32 @@ model AuditLog {
 
   @@index([userId])
   @@index([orgId])
+  @@index([appType])
   @@index([module])
   @@index([action])
   @@index([entityType, entityId])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(uuid())
+  userId     String?
+  orgId      String?
+  appType    AppType
+  eventName  String   // e.g., 'page_view', 'button_click'
+  pagePath   String?
+  metadata   Json?    // Contextual data
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([orgId])
+  @@index([appType])
+  @@index([eventName])
+  @@index([createdAt])
+  @@map("analytics_events")
 }
 
 // ─────────────────────────────────────────────────────────────

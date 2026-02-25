@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { AppType } from '@prisma/client';
 import { RedisService } from '../../../database/redis.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { comparePassword, generateBackupCodes, hashToken } from '../../../common/utils/crypto.util';
@@ -35,6 +36,7 @@ export class SecurityService {
     });
     await this.auditService.log({
       userId,
+      appType: AppType.MAIN_WEB,
       module: 'security',
       action: 'mfa_disabled',
       entityType: 'user',
@@ -52,6 +54,7 @@ export class SecurityService {
     await this.securityRepository.updateSecurity(userId, { mfaBackupCodes: hashedCodes });
     await this.auditService.log({
       userId,
+      appType: AppType.MAIN_WEB,
       module: 'security',
       action: 'backup_codes_regenerated',
       entityType: 'user',
@@ -81,6 +84,7 @@ export class SecurityService {
 
     await this.auditService.log({
       userId,
+      appType: AppType.MAIN_WEB,
       module: 'security',
       action: 'session_revoked',
       entityType: 'user',
@@ -97,6 +101,7 @@ export class SecurityService {
 
     await this.auditService.log({
       userId,
+      appType: AppType.MAIN_WEB,
       module: 'security',
       action: 'all_sessions_revoked',
       entityType: 'user',
