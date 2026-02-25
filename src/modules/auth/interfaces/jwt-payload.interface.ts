@@ -3,6 +3,7 @@ export interface JwtPayload {
   email: string;
   role: string; // system role
   userType: string;
+  sid?: string; // sessionId
   currentOrgId?: string; // org context
   mfaVerified?: boolean;
   iat?: number;

@@ -13,6 +13,8 @@ import { ConfigService } from '@nestjs/config';
 import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 import dayjs from 'dayjs';
+import { v4 as uuidv4 } from 'uuid';
+import { UAParser } from 'ua-parser-js';
 import { AuthRepository } from '../repositories/auth.repository';
 import {
   RegisterDto,
@@ -97,7 +99,7 @@ export class AuthService {
 
   // ─── Login ───────────────────────────────────────────────────────────────────
 
-  async login(dto: LoginDto, ipAddress?: string) {
+  async login(dto: LoginDto, ipAddress?: string, userAgent?: string) {
     const user = await this.authRepository.findUserByEmail(dto.email.toLowerCase());
     if (!user) throw new BadRequestException('Invalid credentials');
     if (!user.isActive)
@@ -173,7 +175,7 @@ export class AuthService {
 
     // ── Full login success ───────────────────────────────────────────────────
     await this.authRepository.updateLastLogin(user.id);
-    const tokens = await this.generateTokens(user);
+    const tokens = await this._generateTokensWithSession(user, ipAddress, userAgent);
     await this.auditService.log({
       userId: user.id,
       module: 'auth',
@@ -181,6 +183,7 @@ export class AuthService {
       entityType: 'user',
       entityId: user.id,
       ipAddress,
+      userAgent,
     });
     this.logger.log(`User logged in: ${user.email}`);
     return {
@@ -260,7 +263,7 @@ export class AuthService {
 
   // ─── MFA Verify ───────────────────────────────────────────────────────────
 
-  async verifyMfa(dto: MfaVerifyDto, ipAddress?: string) {
+  async verifyMfa(dto: MfaVerifyDto, ipAddress?: string, userAgent?: string) {
     const cached = await this.redisService.get<{ userId: string }>(
       `jl:mfa:temp:${dto.mfaTempToken}`,
     );
@@ -280,7 +283,7 @@ export class AuthService {
 
     await this.redisService.del(`jl:mfa:temp:${dto.mfaTempToken}`);
     await this.authRepository.updateLastLogin(user.id);
-    const tokens = await this.generateTokens(user, true);
+    const tokens = await this._generateTokensWithSession(user, ipAddress, userAgent, true);
     await this.auditService.log({
       userId: user.id,
       module: 'auth',
@@ -288,13 +291,14 @@ export class AuthService {
       entityType: 'user',
       entityId: user.id,
       ipAddress,
+      userAgent,
     });
     return { user: this.sanitizeUser(user), ...tokens };
   }
 
   // ─── MFA Backup Code ──────────────────────────────────────────────────────
 
-  async verifyMfaBackupCode(dto: MfaBackupCodeDto) {
+  async verifyMfaBackupCode(dto: MfaBackupCodeDto, ipAddress?: string, userAgent?: string) {
     const cached = await this.redisService.get<{ userId: string }>(
       `jl:mfa:temp:${dto.mfaTempToken}`,
     );
@@ -314,7 +318,7 @@ export class AuthService {
     await this.redisService.del(`jl:mfa:temp:${dto.mfaTempToken}`);
     await this.authRepository.updateLastLogin(user.id);
 
-    const tokens = await this.generateTokens(user, true);
+    const tokens = await this._generateTokensWithSession(user, ipAddress, userAgent, true);
     return { user: this.sanitizeUser(user), ...tokens };
   }
 
@@ -390,9 +394,11 @@ export class AuthService {
     const passwordHash = await hashPassword(dto.newPassword);
     await this.authRepository.updateSecurity(user.id, {
       passwordHash,
-      refreshTokenHash: null,
       lastPasswordChangedAt: new Date(),
     });
+
+    // Revoke all sessions on password reset for security
+    await this.authRepository.deleteAllSessionsByUserId(user.id);
     await this.redisService.del(RESET_TOKEN_KEY(dto.resetToken));
     // Invalidate any active permissions cache
     await this.redisService.delPattern(`jl:permissions:${user.id}:*`);
@@ -412,29 +418,48 @@ export class AuthService {
   // ─── Refresh Tokens ───────────────────────────────────────────────────────
 
   async refreshTokens(userId: string, refreshToken: string) {
-    const user = await this.authRepository.findUserById(userId);
-    if (!user?.security?.refreshTokenHash) throw new UnauthorizedException('Access denied');
+    const tokenHash = hashToken(refreshToken);
+    let session = await this.authRepository.findSessionByToken(tokenHash);
 
-    const incomingHash = hashToken(refreshToken);
-    if (user.security.refreshTokenHash !== incomingHash) {
-      throw new UnauthorizedException('Refresh token mismatch');
+    // If not found by current token, check if it was recently rotated (grace period)
+    if (!session) {
+      const graceSessionId = await this.redisService.get<string>(`jl:auth:grace:${tokenHash}`);
+      if (graceSessionId) {
+        session = await this.authRepository.findSessionById(graceSessionId);
+      }
     }
 
-    const tokens = await this.generateTokens(user);
+    if (!session || dayjs().isAfter(dayjs(session.expiresAt))) {
+      if (session) await this.authRepository.deleteSessionById(session.id);
+      throw new UnauthorizedException('Session expired or invalid');
+    }
+
+    const tokens = await this.generateTokens(session.user, true, session.id);
+    const newTokenHash = hashToken(tokens.refreshToken);
+
+    await this.authRepository.updateSessionActivity(session.id, newTokenHash);
+
+    // Set grace period for the OLD token to prevent race conditions (30 seconds)
+    await this.redisService.set(`jl:auth:grace:${tokenHash}`, session.id, 30);
+
     await this.auditService.log({
-      userId: user.id,
+      userId: session.userId,
       module: 'auth',
       action: 'token_refresh',
       entityType: 'user',
-      entityId: user.id,
+      entityId: session.userId,
     });
     return tokens;
   }
 
   // ─── Logout ───────────────────────────────────────────────────────────────
 
-  async logout(userId: string) {
-    await this.authRepository.updateSecurity(userId, { refreshTokenHash: null });
+  async logout(userId: string, refreshToken?: string, sid?: string) {
+    if (sid) {
+      await this.authRepository.deleteSessionById(sid);
+    } else if (refreshToken) {
+      await this.authRepository.deleteSessionByToken(hashToken(refreshToken));
+    }
     await this.redisService.delPattern(`jl:permissions:${userId}:*`);
     await this.auditService.log({
       userId,
@@ -443,6 +468,7 @@ export class AuthService {
       entityType: 'user',
       entityId: userId,
     });
+    this.logger.log(`User logged out: ${userId}`);
     return { message: 'Logged out successfully' };
   }
 
@@ -501,13 +527,47 @@ export class AuthService {
     }
   }
 
-  private async generateTokens(user: any, mfaVerified = false) {
+  private async _generateTokensWithSession(
+    user: any,
+    ipAddress?: string,
+    userAgent?: string,
+    mfaVerified = false,
+  ) {
+    const sid = uuidv4();
+    const tokens = await this.generateTokens(user, mfaVerified, sid);
+    const tokenHash = hashToken(tokens.refreshToken);
+
+    const parser = new UAParser(userAgent);
+    const uaResult = parser.getResult();
+
+    await this.authRepository.createSession({
+      id: sid,
+      userId: user.id,
+      tokenHash,
+      ipAddress,
+      userAgent,
+      deviceInfo: {
+        browser: uaResult.browser.name,
+        browserVersion: uaResult.browser.version,
+        os: uaResult.os.name,
+        osVersion: uaResult.os.version,
+        device: uaResult.device.model || 'Desktop',
+        deviceType: uaResult.device.type || 'desktop',
+      },
+      expiresAt: dayjs().add(7, 'day').toDate(), // Match refresh token duration
+    });
+
+    return tokens;
+  }
+
+  private async generateTokens(user: any, mfaVerified = false, sid?: string) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.userType === 'super_admin' ? SYSTEM_ROLES.SUPER_ADMIN : user.userType,
       userType: user.userType,
       mfaVerified,
+      sid,
     };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -521,9 +581,6 @@ export class AuthService {
       }),
     ]);
 
-    await this.authRepository.updateSecurity(user.id, {
-      refreshTokenHash: hashToken(refreshToken),
-    });
     return { accessToken, refreshToken };
   }
 

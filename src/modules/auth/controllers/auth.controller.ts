@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus, Ip } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, HttpCode, HttpStatus, Ip, Headers, Req } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import {
@@ -63,8 +63,8 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login with email/password' })
-  async login(@Body() dto: LoginDto, @Ip() ip: string) {
-    const result = await this.authService.login(dto, ip);
+  async login(@Body() dto: LoginDto, @Ip() ip: string, @Headers('user-agent') ua: string) {
+    const result = await this.authService.login(dto, ip, ua);
     let message = 'Login successful';
     if (result.emailVerificationRequired) message = 'Email verification required';
     else if (result.mfaRequired) message = 'MFA verification required';
@@ -77,8 +77,8 @@ export class AuthController {
   @Post('mfa/verify')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Verify TOTP MFA code after login' })
-  async verifyMfa(@Body() dto: MfaVerifyDto, @Ip() ip: string) {
-    const result = await this.authService.verifyMfa(dto, ip);
+  async verifyMfa(@Body() dto: MfaVerifyDto, @Ip() ip: string, @Headers('user-agent') ua: string) {
+    const result = await this.authService.verifyMfa(dto, ip, ua);
     return successResponse(result, 'MFA verification successful');
   }
 
@@ -86,8 +86,8 @@ export class AuthController {
   @Post('mfa/backup-code')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login using MFA backup code' })
-  async verifyMfaBackupCode(@Body() dto: MfaBackupCodeDto) {
-    const result = await this.authService.verifyMfaBackupCode(dto);
+  async verifyMfaBackupCode(@Body() dto: MfaBackupCodeDto, @Ip() ip: string, @Headers('user-agent') ua: string) {
+    const result = await this.authService.verifyMfaBackupCode(dto, ip, ua);
     return successResponse(result, 'Backup code verification successful');
   }
 
@@ -154,8 +154,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth('accessToken')
   @ApiOperation({ summary: 'Logout and invalidate refresh token' })
-  async logout(@CurrentUser() user: JwtPayload) {
-    const result = await this.authService.logout(user.sub);
+  async logout(@CurrentUser() user: JwtPayload, @Req() req: any) {
+    // Attempt to get refresh token from headers if available (for specific logout)
+    const refreshToken = req.headers['x-refresh-token'];
+    const result = await this.authService.logout(user.sub, refreshToken, user.sid);
     return successResponse(result);
   }
 

@@ -148,6 +148,7 @@ model User {
 
   // Relations
   security        UserSecurity?
+  sessions        UserSession[]
   professional    Professional?
   orgMemberships  OrganizationMember[]
   rolesAssigned   UserRole[]
@@ -171,7 +172,6 @@ model UserSecurity {
   id                    String    @id @default(uuid())
   userId                String    @unique
   passwordHash          String
-  refreshTokenHash      String?
   mfaEnabled            Boolean   @default(false)
   mfaSecret             String?   // TOTP secret (encrypted)
   mfaBackupCodes        String[]  @default([]) // hashed backup codes
@@ -189,6 +189,24 @@ model UserSecurity {
 
   @@index([userId])
   @@map("user_security")
+}
+
+model UserSession {
+  id           String    @id @default(uuid())
+  userId       String
+  tokenHash    String    @unique
+  ipAddress    String?
+  userAgent    String?
+  deviceInfo   Json?     // { browser, os, device }
+  lastActiveAt DateTime  @default(now())
+  expiresAt    DateTime
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("user_sessions")
 }
 
 // ─────────────────────────────────────────────────────────────

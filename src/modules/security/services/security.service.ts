@@ -1,20 +1,20 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaService } from '../../../database/prisma.service';
 import { RedisService } from '../../../database/redis.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { comparePassword, generateBackupCodes, hashToken } from '../../../common/utils/crypto.util';
 import { SYSTEM_CONSTANTS } from '../../../common/constants/system.constants';
+import { SecurityRepository } from '../repositories/security.repository';
 
 @Injectable()
 export class SecurityService {
   constructor(
-    private prisma: PrismaService,
+    private securityRepository: SecurityRepository,
     private redisService: RedisService,
     private auditService: AuditService,
   ) {}
 
   async getMfaStatus(userId: string) {
-    const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
+    const security = await this.securityRepository.getUserSecurity(userId);
     return {
       enabled: security?.mfaEnabled || false,
       backupCodesCount: security?.mfaBackupCodes?.length || 0,
@@ -22,15 +22,16 @@ export class SecurityService {
   }
 
   async disableMfa(userId: string, password: string) {
-    const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
+    const security = await this.securityRepository.getUserSecurity(userId);
     if (!security) throw new BadRequestException('Security record not found');
     const isValid = await comparePassword(password, security.passwordHash);
     if (!isValid) throw new BadRequestException('Incorrect password');
     if (!security.mfaEnabled) throw new BadRequestException('MFA is not enabled');
 
-    await this.prisma.userSecurity.update({
-      where: { userId },
-      data: { mfaEnabled: false, mfaSecret: null, mfaBackupCodes: [] },
+    await this.securityRepository.updateSecurity(userId, {
+      mfaEnabled: false,
+      mfaSecret: null,
+      mfaBackupCodes: [],
     });
     await this.auditService.log({
       userId,
@@ -43,15 +44,12 @@ export class SecurityService {
   }
 
   async regenerateBackupCodes(userId: string) {
-    const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
+    const security = await this.securityRepository.getUserSecurity(userId);
     if (!security?.mfaEnabled) throw new BadRequestException('MFA is not enabled');
 
     const newCodes = generateBackupCodes(SYSTEM_CONSTANTS.BACKUP_CODE_COUNT);
     const hashedCodes = newCodes.map((code) => hashToken(code));
-    await this.prisma.userSecurity.update({
-      where: { userId },
-      data: { mfaBackupCodes: hashedCodes },
-    });
+    await this.securityRepository.updateSecurity(userId, { mfaBackupCodes: hashedCodes });
     await this.auditService.log({
       userId,
       module: 'security',
@@ -63,22 +61,40 @@ export class SecurityService {
   }
 
   async getSessions(userId: string) {
-    // In a real implementation this would query an active sessions table
-    const security = await this.prisma.userSecurity.findUnique({ where: { userId } });
-    return security?.refreshTokenHash
-      ? [{ id: 'current', active: true, lastSeen: new Date() }]
-      : [];
+    const sessions = await this.securityRepository.findSessionsByUserId(userId);
+
+    return sessions.map((s) => ({
+      id: s.id,
+      ipAddress: s.ipAddress,
+      userAgent: s.userAgent,
+      deviceInfo: s.deviceInfo,
+      lastActiveAt: s.lastActiveAt,
+      expiresAt: s.expiresAt,
+      isCurrent: false,
+    }));
   }
 
   async revokeSession(userId: string, sessionId: string) {
-    await this.prisma.userSecurity.update({ where: { userId }, data: { refreshTokenHash: null } });
+    await this.securityRepository.deleteSession(sessionId, userId);
+    // Invalidate permissions cache to force re-evaluation on next request
     await this.redisService.delPattern(`jl:permissions:${userId}:*`);
-    return { message: 'Session revoked' };
+
+    await this.auditService.log({
+      userId,
+      module: 'security',
+      action: 'session_revoked',
+      entityType: 'user',
+      entityId: userId,
+      metadata: { sessionId },
+    });
+
+    return { message: 'Session revoked successfully' };
   }
 
   async revokeAllSessions(userId: string) {
-    await this.prisma.userSecurity.update({ where: { userId }, data: { refreshTokenHash: null } });
+    await this.securityRepository.deleteAllSessions(userId);
     await this.redisService.delPattern(`jl:permissions:${userId}:*`);
+
     await this.auditService.log({
       userId,
       module: 'security',
