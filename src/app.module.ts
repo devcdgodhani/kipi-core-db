@@ -27,7 +27,7 @@ import { SecurityModule } from './modules/security/security.module';
 import { ProfessionalsModule } from './modules/professionals/professionals.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { RolesPermissionsModule } from './modules/roles-permissions/roles-permissions.module';
-import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { CasesModule } from './modules/cases/cases.module';
 import { ChatModule } from './modules/chat/chat.module';
@@ -78,7 +78,7 @@ import mailConfig from './config/mail.config';
     ProfessionalsModule,
     OrganizationsModule,
     RolesPermissionsModule,
-    SubscriptionModule,
+    SubscriptionsModule,
     PaymentsModule,
     CasesModule,
     ChatModule,

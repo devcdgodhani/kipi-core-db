@@ -4,7 +4,8 @@ import Razorpay = require('razorpay');
 import * as crypto from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import { AuditService } from '../../audit/services/audit.service';
-import { SubscriptionService } from '../../subscription/services/subscription.service';
+import { SubscriptionPlansService } from '../../subscriptions/services/subscription-plans.service';
+import { OrgSubscriptionsService } from '../../subscriptions/services/org-subscriptions.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
 
@@ -18,7 +19,8 @@ export class PaymentsService {
     private prisma: PrismaService,
     private configService: ConfigService,
     private auditService: AuditService,
-    private subscriptionService: SubscriptionService,
+    private planService: SubscriptionPlansService,
+    private orgSubscriptionService: OrgSubscriptionsService,
     private notificationsService: NotificationsService,
   ) {
     this.razorpay = new Razorpay({
@@ -29,7 +31,7 @@ export class PaymentsService {
   }
 
   async createOrder(orgId: string, planId: string, userId: string) {
-    const plan = await this.subscriptionService.getPlanById(planId);
+    const plan = await this.planService.getPlanById(planId);
     const amountInPaise = Math.round(Number(plan.price) * 100);
     const order = await this.razorpay.orders.create({
       amount: amountInPaise,
@@ -85,7 +87,7 @@ export class PaymentsService {
       where: { id: payment.id },
       data: { status: 'completed', externalId: razorpayPaymentId },
     });
-    await this.subscriptionService.subscribe(orgId, planId, userId);
+    await this.orgSubscriptionService.subscribe(orgId, planId, userId);
     await this.notificationsService.send({
       userId,
       type: 'system',
