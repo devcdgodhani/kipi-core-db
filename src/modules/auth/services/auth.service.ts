@@ -42,6 +42,7 @@ import {
 } from '../../../common/utils/crypto.util';
 import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { SYSTEM_CONSTANTS } from '../../../common/constants/system.constants';
+import { RolesPermissionsService } from '../../roles-permissions/services/roles-permissions.service';
 
 // Redis key helpers
 const OTP_VERIFY_KEY = (email: string) => `jl:otp:verify:${email}`;
@@ -60,6 +61,7 @@ export class AuthService {
     private redisService: RedisService,
     private auditService: AuditService,
     private mailService: MailService,
+    private rolesService: RolesPermissionsService,
   ) {}
 
   // ─── Register ────────────────────────────────────────────────────────────────
@@ -81,6 +83,8 @@ export class AuthService {
 
     // Send email verification OTP automatically
     await this._sendVerificationOtp(user.email, user.firstName);
+
+    // Role assignment moved to verifyEmailOtp after successful verification
 
     await this.auditService.log({
       userId: user.id,
@@ -221,6 +225,17 @@ export class AuthService {
 
     // Send welcome email
     await this.mailService.sendWelcomeEmail(user.email, user.firstName, user.userType);
+
+    // Assign default role based on UserType after successful verification
+    try {
+      const defaultRole = await this.rolesService.findDefaultRole(user.userType);
+      if (defaultRole) {
+        await this.rolesService.assignRoleToUser(user.id, defaultRole.id, null, user.id);
+        this.logger.log(`Default role [${defaultRole.slug}] assigned to verified user: ${user.email}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to assign default role to ${user.email} after verification`, error);
+    }
 
     const tokens = await this.generateTokens({ ...user, isVerified: true });
     await this.auditService.log({
@@ -597,6 +612,9 @@ export class AuthService {
 
   private sanitizeUser(user: any) {
     const { security, ...sanitized } = user;
-    return sanitized;
+    return {
+      ...sanitized,
+      role: user.userType === 'super_admin' ? SYSTEM_ROLES.SUPER_ADMIN : user.userType,
+    };
   }
 }

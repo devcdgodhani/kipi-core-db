@@ -29,8 +29,9 @@ export class AuditController {
     @Query('action') action?: string,
     @Query('from') from?: string,
     @Query('to') to?: string,
+    @Query('search') search?: string,
   ) {
-    const params: any = { page: +page, limit: +limit, module, action };
+    const params: any = { page: +page, limit: +limit, module, action, search };
     if (user.role !== SYSTEM_ROLES.SUPER_ADMIN) params.orgId = orgId;
     if (from) params.from = new Date(from);
     if (to) params.to = new Date(to);

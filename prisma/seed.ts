@@ -1,4 +1,4 @@
-import { PrismaClient, AppType } from '@prisma/client';
+import { PrismaClient, AppType, UserType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -176,9 +176,8 @@ async function main() {
   }
   console.log('✅ Modules, Screens, and Actions seeded for all apps.');
 
-  // ── 3. Create System Roles & Grant All to Super Admin ─────────
   const rolesData = [
-    { name: 'Super Admin', slug: 'super_admin', description: 'Full platform access', isSystem: true },
+    { name: 'Super Admin', slug: 'super_admin', description: 'Full platform access', isSystem: true, isDefault: true, targetUserType: UserType.super_admin },
   ];
 
   for (const roleDef of rolesData) {

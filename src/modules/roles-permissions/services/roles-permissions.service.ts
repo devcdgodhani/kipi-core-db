@@ -12,18 +12,48 @@ export class RolesPermissionsService {
     private auditService: AuditService,
   ) {}
 
-  async createRole(name: string, description: string | undefined, orgId: string, userId: string) {
-    const role = await this.repo.createRole({ name, description, orgId });
+  async createRole(
+    data: {
+      name: string;
+      description?: string;
+      orgId?: string;
+      isSystem?: boolean;
+      isDefault?: boolean;
+      targetUserType?: any;
+      slug?: string;
+      initialPermissions?: { featureId?: string; screenId?: string; actionId: string }[];
+    },
+    userId: string,
+  ) {
+    const role = await this.repo.createRole(data);
     await this.auditService.log({
       userId,
-      orgId,
-      appType: AppType.MAIN_WEB,
+      orgId: data.orgId || null,
+      appType: AppType.ADMIN_WEB,
       module: 'roles',
       action: 'create_role',
       entityType: 'role',
       entityId: role.id,
+      newData: data,
     });
     return role;
+  }
+
+  async findDefaultRole(userType: any) {
+    return this.repo.findDefaultRole(userType);
+  }
+
+  async cloneSystemRolesForOrg(orgId: string, actorId: string) {
+    await this.repo.cloneSystemRoles(orgId);
+    await this.auditService.log({
+      userId: actorId,
+      orgId,
+      appType: AppType.ADMIN_WEB,
+      module: 'roles',
+      action: 'clone_system_roles',
+      entityType: 'organization',
+      entityId: orgId,
+    });
   }
 
   async listRoles(orgId: string) {
@@ -123,4 +153,75 @@ export class RolesPermissionsService {
       entityId: id,
     });
   }
+
+  async updateRole(
+    id: string,
+    data: { name?: string; description?: string; isSystem?: boolean; isDefault?: boolean; targetUserType?: any },
+    userId: string,
+  ) {
+    const role = await this.repo.findRoleById(id);
+    if (!role) throw new NotFoundException('Role not found');
+
+    // In many systems, system roles are partially protected
+    if (role.isSystem && (data.name || data.isDefault)) {
+  // Logic for system roles if needed
+    }
+
+    const updated = await this.repo.updateRole(id, data);
+
+    await this.auditService.log({
+      userId,
+      orgId: updated.orgId || null,
+      appType: AppType.ADMIN_WEB,
+      module: 'roles',
+      action: 'update_role',
+      entityType: 'role',
+      entityId: id,
+      newData: data,
+    });
+
+    return updated;
+  }
+
+  async updateRolePermissions(
+    roleId: string,
+    permissions: { featureId?: string; screenId?: string; actionId: string }[],
+    userId: string,
+  ) {
+    const role = await this.repo.findRoleById(roleId);
+    if (!role) throw new NotFoundException('Role not found');
+
+    const result = await this.repo.setRolePermissions(roleId, permissions);
+
+    // Invalidate cache
+    if (role.orgId) {
+      await this.redisService.delPattern(`jl:permissions:*:${role.orgId}`);
+    } else {
+      // System role - might need to invalidate all caches if it's widely used, 
+      // but usually users have org-specific copies or we use a separate pattern.
+      await this.redisService.delPattern(`jl:permissions:*`);
+    }
+
+    await this.auditService.log({
+      userId,
+      orgId: role.orgId || null,
+      appType: AppType.ADMIN_WEB,
+      module: 'roles',
+      action: 'update_permissions',
+      entityType: 'role',
+      entityId: roleId,
+      newData: { permissions },
+    });
+
+    return result;
+  }
+
+  async getModules() {
+    return this.repo.findModules();
+  }
+
+  async getScreens() {
+    return this.repo.findScreens();
+  }
 }
+

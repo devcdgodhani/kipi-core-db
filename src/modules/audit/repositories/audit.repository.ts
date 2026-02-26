@@ -60,6 +60,7 @@ export class AuditRepository {
     action?: string;
     from?: Date;
     to?: Date;
+    search?: string;
   }) {
     const where: any = {};
     if (params.userId) where.userId = params.userId;
@@ -71,6 +72,16 @@ export class AuditRepository {
       where.createdAt = {};
       if (params.from) where.createdAt.gte = params.from;
       if (params.to) where.createdAt.lte = params.to;
+    }
+
+    if (params.search) {
+      where.OR = [
+        { module: { contains: params.search, mode: 'insensitive' } },
+        { action: { contains: params.search, mode: 'insensitive' } },
+        { user: { firstName: { contains: params.search, mode: 'insensitive' } } },
+        { user: { lastName: { contains: params.search, mode: 'insensitive' } } },
+        { user: { email: { contains: params.search, mode: 'insensitive' } } },
+      ];
     }
 
     const [logs, total] = await Promise.all([

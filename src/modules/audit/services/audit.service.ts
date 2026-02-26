@@ -61,6 +61,7 @@ export class AuditService {
     action?: string;
     from?: Date;
     to?: Date;
+    search?: string;
   }) {
     const dto = { page: params.page || 1, limit: params.limit || 20 };
     const { skip, take } = getPaginationParams(dto);

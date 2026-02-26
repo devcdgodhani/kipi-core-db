@@ -10,7 +10,10 @@ export class RolesPermissionsRepository {
     description?: string;
     orgId?: string;
     isSystem?: boolean;
+    isDefault?: boolean;
+    targetUserType?: any;
     slug?: string;
+    initialPermissions?: { featureId?: string; screenId?: string; actionId: string }[];
   }) {
     const slug = data.slug || data.name.toLowerCase().replace(/\s+/g, '_');
     const role = await this.prisma.role.create({
@@ -19,12 +22,13 @@ export class RolesPermissionsRepository {
         description: data.description,
         orgId: data.orgId || null,
         isSystem: data.isSystem || false,
+        isDefault: data.isDefault || false,
+        targetUserType: data.targetUserType || null,
         slug,
       },
     });
 
-    // Auto-seed permissions for new role (granted: false by default)
-    // We now seed for both legacy features and new screens
+    // Seed permissions
     const [allFeatures, allScreens] = await Promise.all([
       this.prisma.feature.findMany({ include: { actions: true } }),
       this.prisma.screen.findMany({ include: { actions: true } }),
@@ -35,11 +39,15 @@ export class RolesPermissionsRepository {
     // Legacy Feature Permissions
     for (const feature of allFeatures) {
       for (const action of feature.actions) {
+        const isGranted = data.initialPermissions?.some(
+          (p) => p.featureId === feature.id && p.actionId === action.id,
+        ) || (data.isSystem && slug === 'super_admin');
+
         permissionData.push({
           roleId: role.id,
           featureId: feature.id,
           actionId: action.id,
-          granted: data.isSystem ? slug === 'super_admin' : false,
+          granted: isGranted,
         });
       }
     }
@@ -47,11 +55,15 @@ export class RolesPermissionsRepository {
     // New Screen Permissions
     for (const screen of allScreens) {
       for (const action of screen.actions) {
+        const isGranted = data.initialPermissions?.some(
+          (p) => p.screenId === screen.id && p.actionId === action.id,
+        ) || (data.isSystem && slug === 'super_admin');
+
         permissionData.push({
           roleId: role.id,
           screenId: screen.id,
           actionId: action.id,
-          granted: data.isSystem ? slug === 'super_admin' : false,
+          granted: isGranted,
         });
       }
     }
@@ -63,6 +75,44 @@ export class RolesPermissionsRepository {
     }
 
     return role;
+  }
+
+  async findDefaultRole(userType: any) {
+    return this.prisma.role.findFirst({
+      where: { isSystem: true, targetUserType: userType, orgId: null },
+    });
+  }
+
+  async cloneSystemRoles(orgId: string) {
+    const systemRoles = await this.prisma.role.findMany({
+      where: { orgId: null, isDefault: true, slug: { not: 'super_admin' } },
+      include: { permissions: true },
+    });
+
+    for (const sysRole of systemRoles) {
+      const newRole = await this.prisma.role.create({
+        data: {
+          name: sysRole.name,
+          slug: sysRole.slug,
+          description: sysRole.description,
+          orgId,
+          isSystem: false, // Organization copy is not a system role
+          isDefault: sysRole.isDefault,
+        },
+      });
+
+      const permissions = sysRole.permissions.map((p) => ({
+        roleId: newRole.id,
+        featureId: p.featureId,
+        screenId: p.screenId,
+        actionId: p.actionId,
+        granted: p.granted,
+      }));
+
+      if (permissions.length > 0) {
+        await this.prisma.rolePermission.createMany({ data: permissions });
+      }
+    }
   }
 
   async findRoleById(id: string) {
@@ -145,9 +195,34 @@ export class RolesPermissionsRepository {
     });
   }
 
+  async updateRole(id: string, data: { name?: string; description?: string; isSystem?: boolean; isDefault?: boolean; targetUserType?: any }) {
+    return this.prisma.role.update({
+      where: { id },
+      data: {
+        ...data,
+        slug: data.name ? data.name.toLowerCase().replace(/\s+/g, '_') : undefined,
+      },
+    });
+  }
+
   async deleteRole(id: string) {
     await this.prisma.rolePermission.deleteMany({ where: { roleId: id } });
     await this.prisma.userRole.deleteMany({ where: { roleId: id } });
     return this.prisma.role.delete({ where: { id } });
+  }
+
+  async findModules() {
+    return this.prisma.module.findMany({
+      include: { features: { include: { actions: true } } },
+    });
+  }
+
+  async findScreens() {
+    return this.prisma.screen.findMany({
+      include: {
+        actions: true,
+        module: true,
+      },
+    });
   }
 }

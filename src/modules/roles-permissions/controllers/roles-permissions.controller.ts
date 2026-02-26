@@ -49,7 +49,14 @@ export class RolesPermissionsController {
     @OrgId() orgId: string,
     @CurrentUser() user: JwtPayload,
   ) {
-    const result = await this.rolesService.createRole(dto.name, dto.description, orgId, user.sub);
+    const result = await this.rolesService.createRole(
+      {
+        name: dto.name,
+        description: dto.description,
+        orgId,
+      },
+      user.sub,
+    );
     return successResponse(result, 'Role created');
   }
 
