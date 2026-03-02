@@ -5,7 +5,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../../../database/prisma.service';
 import { AuditService } from '../../audit/services/audit.service';
 import { SubscriptionPlansService } from '../../subscriptions/services/subscription-plans.service';
-import { OrgSubscriptionsService } from '../../subscriptions/services/org-subscriptions.service';
+import { UserSubscriptionsService } from '../../subscriptions/services/user-subscriptions.service';
 import { NotificationsService } from '../../notifications/services/notifications.service';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
 
@@ -20,7 +20,7 @@ export class PaymentsService {
     private configService: ConfigService,
     private auditService: AuditService,
     private planService: SubscriptionPlansService,
-    private orgSubscriptionService: OrgSubscriptionsService,
+    private userSubscriptionService: UserSubscriptionsService,
     private notificationsService: NotificationsService,
   ) {
     this.razorpay = new Razorpay({
@@ -30,32 +30,31 @@ export class PaymentsService {
     this.webhookSecret = this.configService.get<string>('payment.razorpay.webhookSecret');
   }
 
-  async createOrder(orgId: string, planId: string, userId: string) {
+  async createOrder(planId: string, userId: string, billingInterval: 'monthly' | 'yearly') {
     const plan = await this.planService.getPlanById(planId);
-    const amountInPaise = Math.round(Number(plan.price) * 100);
+    const price = billingInterval === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+    const amountInPaise = Math.round(Number(price) * 100);
     const order = await this.razorpay.orders.create({
       amount: amountInPaise,
       currency: 'INR',
-      notes: { orgId, planId, userId },
+      notes: { planId, userId, billingInterval },
     });
     await this.prisma.payment.create({
       data: {
-        orgId,
         userId,
-        amount: plan.price,
+        amount: price,
         currency: 'INR',
         status: 'pending',
         orderId: order.id as string,
-        metadata: { planId },
+        metadata: { planId, billingInterval },
       },
     });
     await this.auditService.log({
       userId,
-      orgId,
       module: 'payments',
       action: 'create_order',
       entityType: 'payment',
-      newData: { planId, amount: plan.price },
+      newData: { planId, amount: price, billingInterval },
     });
     return {
       orderId: order.id,
@@ -66,7 +65,6 @@ export class PaymentsService {
   }
 
   async verifyAndActivate(
-    orgId: string,
     userId: string,
     razorpayOrderId: string,
     razorpayPaymentId: string,
@@ -83,11 +81,12 @@ export class PaymentsService {
     if (!payment) throw new NotFoundException('Payment record not found');
 
     const planId = (payment.metadata as any)?.planId;
+    const billingInterval = (payment.metadata as any)?.billingInterval || 'monthly';
     await this.prisma.payment.update({
       where: { id: payment.id },
       data: { status: 'completed', externalId: razorpayPaymentId },
     });
-    await this.orgSubscriptionService.subscribe(orgId, planId, userId);
+    await this.userSubscriptionService.subscribe(userId, planId, billingInterval);
     await this.notificationsService.send({
       userId,
       type: 'system',
@@ -98,7 +97,6 @@ export class PaymentsService {
     });
     await this.auditService.log({
       userId,
-      orgId,
       module: 'payments',
       action: 'payment_success',
       entityType: 'payment',
@@ -123,16 +121,16 @@ export class PaymentsService {
     return { received: true };
   }
 
-  async getHistory(orgId: string, page = 1, limit = 20) {
+  async getHistory(userId: string, page = 1, limit = 20) {
     const { skip, take } = getPaginationParams({ page, limit });
     const [items, total] = await Promise.all([
       this.prisma.payment.findMany({
-        where: { orgId },
+        where: { userId },
         skip,
         take,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.payment.count({ where: { orgId } }),
+      this.prisma.payment.count({ where: { userId } }),
     ]);
     return buildPaginatedResponse(items, total, { page, limit });
   }

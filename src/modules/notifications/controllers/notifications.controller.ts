@@ -14,21 +14,22 @@ import { NotificationsService } from '../services/notifications.service';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
-import { PermissionGuard } from '../../../common/guards/permissions.guard';
-import { Permission } from '../../../common/decorators/permission.decorator';
-import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 import { Audit } from '../../../common/decorators/audit.decorator';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
+import { RequiresPlanAccess } from '../../../common/decorators/plan-access.decorator';
 
 @ApiTags('Notifications')
 @ApiBearerAuth('accessToken')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanAccessGuard)
+@RequiresPlanAccess({ moduleKey: MODULE_KEYS.NOTIFICATIONS })
 @Controller({ path: 'notifications', version: '1' })
 export class NotificationsController {
   constructor(private notificationsService: NotificationsService) {}
 
   @Get()
-  @Permission(FEATURE_KEYS.NOTIFICATIONS_VIEW)
   @ApiOperation({ summary: 'Get my notifications' })
   async findAll(
     @CurrentUser() user: JwtPayload,
@@ -40,7 +41,6 @@ export class NotificationsController {
   }
 
   @Get('unread-count')
-  @Permission(FEATURE_KEYS.NOTIFICATIONS_VIEW)
   @ApiOperation({ summary: 'Get unread notification count' })
   async unreadCount(@CurrentUser() user: JwtPayload) {
     const count = await this.notificationsService.countUnread(user.sub);
@@ -49,7 +49,6 @@ export class NotificationsController {
 
   @Patch(':id/read')
   @HttpCode(HttpStatus.OK)
-  @Permission(FEATURE_KEYS.NOTIFICATIONS_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.NOTIFICATIONS })
   @ApiOperation({ summary: 'Mark a notification as read' })
   async markRead(@Param('id') id: string, @CurrentUser() user: JwtPayload) {
@@ -59,7 +58,6 @@ export class NotificationsController {
 
   @Patch('read-all')
   @HttpCode(HttpStatus.OK)
-  @Permission(FEATURE_KEYS.NOTIFICATIONS_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.NOTIFICATIONS })
   @ApiOperation({ summary: 'Mark all notifications as read' })
   async markAllRead(@CurrentUser() user: JwtPayload) {
@@ -69,7 +67,6 @@ export class NotificationsController {
 
   @Delete('clear')
   @HttpCode(HttpStatus.OK)
-  @Permission(FEATURE_KEYS.NOTIFICATIONS_MANAGE)
   @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.NOTIFICATIONS })
   @ApiOperation({ summary: 'Clear all notifications' })
   async clearAll(@CurrentUser() user: JwtPayload) {

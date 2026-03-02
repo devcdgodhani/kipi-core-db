@@ -1,11 +1,10 @@
 import { SetMetadata } from '@nestjs/common';
-import { ActionKey, ModuleKey } from '../constants/permissions.constants';
 
 export const AUDIT_KEY = 'audit';
 
 export interface AuditMetadata {
-  action: ActionKey;
-  module: ModuleKey;
+  action: string;
+  module: string;
 }
 
 /**

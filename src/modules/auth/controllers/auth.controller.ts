@@ -14,6 +14,9 @@ import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from '../services/auth.service';
 import {
   RegisterDto,
+  RegisterClientDto,
+  RegisterProfessionalDto,
+  RegisterLawFirmDto,
   LoginDto,
   MfaVerifyDto,
   MfaBackupCodeDto,
@@ -42,9 +45,33 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Register a new user (sends email verification OTP)' })
+  @ApiOperation({ summary: 'Register a new user (generic/legacy)' })
   async register(@Body() dto: RegisterDto) {
     const result = await this.authService.register(dto);
+    return successResponse(result, result.message);
+  }
+
+  @Public()
+  @Post('register/client')
+  @ApiOperation({ summary: 'Register a new Client' })
+  async registerClient(@Body() dto: RegisterClientDto) {
+    const result = await this.authService.registerClient(dto);
+    return successResponse(result, result.message);
+  }
+
+  @Public()
+  @Post('register/professional')
+  @ApiOperation({ summary: 'Register a new Professional (pending approval)' })
+  async registerProfessional(@Body() dto: RegisterProfessionalDto) {
+    const result = await this.authService.registerProfessional(dto);
+    return successResponse(result, result.message);
+  }
+
+  @Public()
+  @Post('register/law-firm')
+  @ApiOperation({ summary: 'Register a new Law Firm (pending approval)' })
+  async registerLawFirm(@Body() dto: RegisterLawFirmDto) {
+    const result = await this.authService.registerLawFirm(dto);
     return successResponse(result, result.message);
   }
 
@@ -183,5 +210,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Get current authenticated user profile' })
   async getMe(@CurrentUser() user: JwtPayload) {
     return successResponse(user, 'Current user');
+  }
+
+  @Public()
+  @Get('approval-status')
+  @ApiOperation({ summary: 'Check approval status (polling)' })
+  async getApprovalStatus(@Req() req: any) {
+    const email = req.query.email;
+    const result = await this.authService.getApprovalStatus(email);
+    return successResponse(result);
   }
 }

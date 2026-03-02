@@ -7,11 +7,16 @@ import {
   IsEnum,
   Matches,
   Length,
+  IsArray,
+  IsInt,
+  Min,
+  IsUrl,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { UserType } from '@prisma/client';
+import { Type } from 'class-transformer';
 
-export class RegisterDto {
+export class BaseRegisterDto {
   @ApiProperty({ example: 'john.doe@example.com' })
   @IsEmail()
   email: string;
@@ -37,16 +42,118 @@ export class RegisterDto {
   })
   password: string;
 
-  @ApiPropertyOptional({ enum: UserType, default: 'client' })
-  @IsOptional()
-  @IsEnum(UserType)
-  userType?: UserType;
-
   @ApiPropertyOptional({ example: '+919876543210' })
   @IsOptional()
   @IsString()
   phone?: string;
+
+  @ApiPropertyOptional({ enum: UserType, default: 'client' })
+  @IsOptional()
+  @IsEnum(UserType)
+  userType?: UserType;
 }
+
+export class RegisterClientDto extends BaseRegisterDto {
+  @ApiPropertyOptional({ example: ['Civil Litigation', 'Family Law'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  interests?: string[];
+}
+
+export class RegisterProfessionalDto extends BaseRegisterDto {
+  @ApiPropertyOptional({ example: 'BAR-123456' })
+  @IsOptional()
+  @IsString()
+  barRegistration?: string;
+
+  @ApiProperty({ example: ['Criminal Law'] })
+  @IsArray()
+  @IsString({ each: true })
+  specializations: string[];
+
+  @ApiProperty({ example: 5 })
+  @IsInt()
+  @Min(0)
+  experienceYears: number;
+
+  @ApiPropertyOptional({ example: 'Experienced criminal defense professional.' })
+  @IsOptional()
+  @IsString()
+  bio?: string;
+
+  @ApiProperty({ example: ['High Court'] })
+  @IsArray()
+  @IsString({ each: true })
+  practiceAreas: string[];
+
+  @ApiPropertyOptional({ example: ['English', 'Hindi'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  languages?: string[];
+
+  @ApiPropertyOptional({ example: 'New Delhi' })
+  @IsOptional()
+  @IsString()
+  location?: string;
+
+  @ApiPropertyOptional({ example: 500 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  hourlyRate?: number;
+}
+
+export class RegisterLawFirmDto extends BaseRegisterDto {
+  @ApiProperty({ example: 'Justice Partners LLP' })
+  @IsString()
+  @MinLength(3)
+  firmName: string;
+
+  @ApiPropertyOptional({ example: 'REG-7890' })
+  @IsOptional()
+  @IsString()
+  registrationNumber?: string;
+
+  @ApiPropertyOptional({ example: 2010 })
+  @IsOptional()
+  @IsInt()
+  @Min(1800)
+  establishedYear?: number;
+
+  @ApiPropertyOptional({ example: 'https://justicepartners.com' })
+  @IsOptional()
+  @IsUrl()
+  website?: string;
+
+  @ApiPropertyOptional({ example: ['Corporate Law', 'Litigation'] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  specializations?: string[];
+
+  @ApiPropertyOptional({ example: { street: 'Main St', city: 'Delhi' } })
+  @IsOptional()
+  address?: any;
+
+  @ApiPropertyOptional({ example: 'Leading legal firm in the region.' })
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ example: 'contact@firm.com' })
+  @IsOptional()
+  @IsEmail()
+  firmEmail?: string;
+
+  @ApiPropertyOptional({ example: '+919876543211' })
+  @IsOptional()
+  @IsString()
+  firmPhone?: string;
+}
+
+export class RegisterDto extends BaseRegisterDto { }
 
 export class LoginDto {
   @ApiProperty({ example: 'john.doe@example.com' })

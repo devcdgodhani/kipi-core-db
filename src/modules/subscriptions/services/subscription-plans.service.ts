@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { SubscriptionPlansRepository } from '../repositories/subscription-plans.repository';
-import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from '../dto/subscription-plan.dto';
+import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from '../dto/subscription-plans.dto';
 import { AuditService } from '../../audit/services/audit.service';
-import { AppType } from '@prisma/client';
+import { AppType, UserType } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionPlansService {
@@ -47,8 +47,8 @@ export class SubscriptionPlansService {
     return updated;
   }
 
-  async getPublicPlans() {
-    return this.repository.findAll(true);
+  async getPublicPlans(userType?: UserType) {
+    return this.repository.findAll(true, userType);
   }
 
   async getAllPlans() {

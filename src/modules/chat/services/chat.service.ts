@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { ChatRepository } from '../repositories/chat.repository';
 import { AuditService } from '../../audit/services/audit.service';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
-import { ACTION_KEYS } from '../../../common/constants/permissions.constants';
 import { buildPaginatedResponse } from '../../../common/utils/pagination.util';
 
 @Injectable()
@@ -23,7 +22,7 @@ export class ChatService {
       userId,
       orgId,
       module: MODULE_KEYS.CHAT,
-      action: ACTION_KEYS.SEND,
+      action: 'send',
       entityType: 'case_message',
       entityId: message.id,
       metadata: { caseId: data.caseId },
@@ -54,7 +53,7 @@ export class ChatService {
       userId,
       orgId,
       module: MODULE_KEYS.CHAT,
-      action: ACTION_KEYS.UPDATE,
+      action: 'update',
       entityType: 'case_message',
       entityId: messageId,
       metadata: { action: 'read', caseId: message.caseId },
@@ -75,7 +74,7 @@ export class ChatService {
       userId,
       orgId,
       module: MODULE_KEYS.CHAT,
-      action: ACTION_KEYS.DELETE,
+      action: 'delete',
       entityType: 'case_message',
       entityId: messageId,
       metadata: { caseId: message.caseId },

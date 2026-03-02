@@ -3,7 +3,7 @@
  */
 export const SUBSCRIPTION_PLANS = {
   FREE: 'free',
-  SOLO_ADVOCATE: 'solo_advocate',
+  SOLO_PROFESSIONAL: 'solo_professional',
   SOLO_DETECTIVE: 'solo_detective',
   LAW_FIRM_STARTER: 'law_firm_starter',
   LAW_FIRM_PRO: 'law_firm_pro',
@@ -35,7 +35,7 @@ export const DEFAULT_PLAN_LIMITS = {
     hasChat: false,
     hasAnalytics: false,
   },
-  [SUBSCRIPTION_PLANS.SOLO_ADVOCATE]: {
+  [SUBSCRIPTION_PLANS.SOLO_PROFESSIONAL]: {
     maxUsers: 1,
     maxCases: 50,
     storageGb: 10,

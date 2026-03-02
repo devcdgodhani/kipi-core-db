@@ -11,11 +11,25 @@ export class AuthRepository {
   }
 
   async findUserByEmail(email: string) {
-    return this.db.user.findUnique({ where: { email }, include: { security: true } });
+    return this.db.user.findUnique({
+      where: { email },
+      include: {
+        security: true,
+        professional: true,
+        orgMemberships: { include: { organization: true } }
+      }
+    });
   }
 
   async findUserById(id: string) {
-    return this.db.user.findUnique({ where: { id }, include: { security: true } });
+    return this.db.user.findUnique({
+      where: { id },
+      include: {
+        security: true,
+        professional: true,
+        orgMemberships: { include: { organization: true } }
+      }
+    });
   }
 
   async createUser(data: Prisma.UserCreateInput & { passwordHash: string }) {
@@ -26,6 +40,43 @@ export class AuthRepository {
         security: { create: { passwordHash } },
       },
       include: { security: true },
+    });
+  }
+
+  async createProfessional(data: Prisma.UserCreateInput & { passwordHash: string; professional: any }) {
+    const { passwordHash, professional, ...userData } = data;
+    return this.db.user.create({
+      data: {
+        ...userData,
+        security: { create: { passwordHash } },
+        professional: { create: professional },
+      },
+      include: { security: true, professional: true },
+    });
+  }
+
+  async createLawFirm(data: Prisma.UserCreateInput & { passwordHash: string; organization: any }) {
+    const { passwordHash, organization, ...userData } = data;
+    return this.db.user.create({
+      data: {
+        ...userData,
+        security: { create: { passwordHash } },
+        orgMemberships: {
+          create: {
+            role: 'admin',
+            status: 'active',
+            organization: { create: organization },
+          },
+        },
+      },
+      include: { security: true, orgMemberships: { include: { organization: true } } },
+    });
+  }
+
+  async getApprovalStatus(email: string) {
+    return this.db.user.findUnique({
+      where: { email },
+      select: { approvalStatus: true, approvalNote: true, userType: true, isVerified: true },
     });
   }
 

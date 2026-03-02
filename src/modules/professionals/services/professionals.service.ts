@@ -35,9 +35,9 @@ export class ProfessionalsService {
     return buildPaginatedResponse(items, total, dto);
   }
 
-  async verify(id: string) {
-    const prof = await this.professionalsRepository.findById(id);
-    if (!prof) throw new NotFoundException('Professional not found');
-    return this.professionalsRepository.updateStatus(id, 'verified');
+  async approve(userId: string) {
+    const prof = await this.professionalsRepository.findByUserId(userId);
+    if (!prof) throw new NotFoundException('Professional profile not found');
+    return this.professionalsRepository.updateApprovalStatus(userId, 'approved');
   }
 }

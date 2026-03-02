@@ -1,22 +1,23 @@
 import { Module } from '@nestjs/common';
 import { SubscriptionPlansController } from './controllers/subscription-plans.controller';
-import { OrgSubscriptionsController } from './controllers/org-subscriptions.controller';
+import { UserSubscriptionsController } from './controllers/user-subscriptions.controller';
 import { SubscriptionPlansService } from './services/subscription-plans.service';
-import { OrgSubscriptionsService } from './services/org-subscriptions.service';
+import { UserSubscriptionsService } from './services/user-subscriptions.service';
 import { SubscriptionPlansRepository } from './repositories/subscription-plans.repository';
-import { OrgSubscriptionsRepository } from './repositories/org-subscriptions.repository';
+import { UserSubscriptionsRepository } from './repositories/user-subscriptions.repository';
 import { RedisModule } from '../../database/redis.module';
 import { AuditModule } from '../audit/audit.module';
+import { AuthModule } from '../auth/auth.module';
 
 @Module({
-    imports: [RedisModule, AuditModule],
-    controllers: [SubscriptionPlansController, OrgSubscriptionsController],
+    imports: [RedisModule, AuditModule, AuthModule],
+    controllers: [SubscriptionPlansController, UserSubscriptionsController],
     providers: [
         SubscriptionPlansService,
-        OrgSubscriptionsService,
+        UserSubscriptionsService,
         SubscriptionPlansRepository,
-        OrgSubscriptionsRepository,
+        UserSubscriptionsRepository,
     ],
-    exports: [SubscriptionPlansService, OrgSubscriptionsService],
+    exports: [SubscriptionPlansService, UserSubscriptionsService],
 })
 export class SubscriptionsModule { }

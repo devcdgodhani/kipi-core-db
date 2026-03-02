@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from '../dto/subscription-plan.dto';
+import { CreateSubscriptionPlanDto, UpdateSubscriptionPlanDto } from '../dto/subscription-plans.dto';
+import { UserType } from '@prisma/client';
 
 @Injectable()
 export class SubscriptionPlansRepository {
   constructor(private prisma: PrismaService) {}
 
   async create(data: CreateSubscriptionPlanDto) {
-    const { limits, moduleIds, ...planData } = data;
+    const { limits, moduleIds, featureIds, ...planData } = data;
+
     const slug = data.name.toLowerCase().replace(/\s+/g, '-');
 
     return this.prisma.subscriptionPlan.create({
@@ -25,6 +27,11 @@ export class SubscriptionPlansRepository {
             moduleId,
           })),
         },
+        planFeatures: {
+          create: featureIds?.map((featureId) => ({
+            featureId,
+          })),
+        },
       },
       include: {
         limits: true,
@@ -33,12 +40,17 @@ export class SubscriptionPlansRepository {
             module: true,
           },
         },
+        planFeatures: {
+          include: {
+            feature: true,
+          },
+        },
       },
     });
   }
 
   async update(id: string, data: UpdateSubscriptionPlanDto) {
-    const { limits, moduleIds, ...planData } = data;
+    const { limits, moduleIds, featureIds, ...planData } = data;
 
     const updatePayload: any = { ...planData };
     if (data.name) {
@@ -68,6 +80,14 @@ export class SubscriptionPlansRepository {
         });
       }
 
+      // Update features
+      if (featureIds) {
+        await tx.planFeature.deleteMany({ where: { planId: id } });
+        await tx.planFeature.createMany({
+          data: featureIds.map((featureId) => ({ planId: id, featureId })),
+        });
+      }
+
       return tx.subscriptionPlan.findUnique({
         where: { id },
         include: {
@@ -75,6 +95,11 @@ export class SubscriptionPlansRepository {
           modules: {
             include: {
               module: true,
+            },
+          },
+          planFeatures: {
+            include: {
+              feature: true,
             },
           },
         },
@@ -92,13 +117,27 @@ export class SubscriptionPlansRepository {
             module: true,
           },
         },
+        planFeatures: {
+          include: {
+            feature: true,
+          },
+        },
       },
     });
   }
 
-  async findAll(onlyPublic = false) {
+  async findAll(onlyPublic = false, userType?: UserType) {
+    const where: any = {};
+    if (onlyPublic) {
+      where.isPublic = true;
+      where.isActive = true;
+    }
+    if (userType) {
+      where.targetUserType = userType;
+    }
+
     return this.prisma.subscriptionPlan.findMany({
-      where: onlyPublic ? { isPublic: true, isActive: true } : {},
+      where,
       include: {
         limits: true,
         modules: {
@@ -106,8 +145,13 @@ export class SubscriptionPlansRepository {
             module: true,
           },
         },
+        planFeatures: {
+          include: {
+            feature: true,
+          },
+        },
       },
-      orderBy: { price: 'asc' },
+      orderBy: { monthlyPrice: 'asc' },
     });
   }
 

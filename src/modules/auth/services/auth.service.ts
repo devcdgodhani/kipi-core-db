@@ -19,6 +19,9 @@ import { UAParser } from 'ua-parser-js';
 import { AuthRepository } from '../repositories/auth.repository';
 import {
   RegisterDto,
+  RegisterClientDto,
+  RegisterProfessionalDto,
+  RegisterLawFirmDto,
   LoginDto,
   MfaVerifyDto,
   MfaBackupCodeDto,
@@ -28,6 +31,7 @@ import {
   VerifyForgotPasswordOtpDto,
   ResetPasswordDto,
 } from '../dto/auth.dto';
+import { UserType, ApprovalStatus } from '@prisma/client';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 import { RedisService } from '../../../database/redis.service';
 import { AuditService } from '../../audit/services/audit.service';
@@ -40,9 +44,7 @@ import {
   hashToken,
   generateOtp,
 } from '../../../common/utils/crypto.util';
-import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { SYSTEM_CONSTANTS } from '../../../common/constants/system.constants';
-import { RolesPermissionsService } from '../../roles-permissions/services/roles-permissions.service';
 
 // Redis key helpers
 const OTP_VERIFY_KEY = (email: string) => `jl:otp:verify:${email}`;
@@ -61,7 +63,6 @@ export class AuthService {
     private redisService: RedisService,
     private auditService: AuditService,
     private mailService: MailService,
-    private rolesService: RolesPermissionsService,
   ) {}
 
   // ─── Register ────────────────────────────────────────────────────────────────
@@ -77,14 +78,12 @@ export class AuthService {
       firstName: dto.firstName,
       lastName: dto.lastName,
       phone: dto.phone,
-      userType: dto.userType || 'client',
+      userType: dto.userType || UserType.client,
+      approvalStatus: ApprovalStatus.approved,
       passwordHash,
     });
 
-    // Send email verification OTP automatically
     await this._sendVerificationOtp(user.email, user.firstName);
-
-    // Role assignment moved to verifyEmailOtp after successful verification
 
     await this.auditService.log({
       userId: user.id,
@@ -101,6 +100,111 @@ export class AuthService {
       email: user.email,
       user: this.sanitizeUser(user),
     };
+  }
+
+  async registerClient(dto: RegisterClientDto) {
+    const existing = await this.authRepository.findUserByEmail(dto.email.toLowerCase().trim());
+    if (existing) throw new ConflictException('Email already registered');
+
+    const passwordHash = await hashPassword(dto.password);
+
+    const user = await this.authRepository.createUser({
+      email: dto.email.toLowerCase().trim(),
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      userType: UserType.client,
+      approvalStatus: ApprovalStatus.approved,
+      passwordHash,
+    });
+
+    await this._sendVerificationOtp(user.email, user.firstName);
+    return {
+      message: 'Registration successful. Please verify your email.',
+      email: user.email,
+    };
+  }
+
+  async registerProfessional(dto: RegisterProfessionalDto) {
+    const existing = await this.authRepository.findUserByEmail(dto.email.toLowerCase().trim());
+    if (existing) throw new ConflictException('Email already registered');
+
+    const passwordHash = await hashPassword(dto.password);
+
+    const user = await this.authRepository.createProfessional({
+      email: dto.email.toLowerCase().trim(),
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      userType: UserType.advocate,
+      approvalStatus: ApprovalStatus.pending,
+      passwordHash,
+      professional: {
+        barRegistration: dto.barRegistration,
+        specializations: dto.specializations,
+        experienceYears: dto.experienceYears,
+        bio: dto.bio,
+        practiceAreas: dto.practiceAreas,
+        languages: dto.languages,
+        location: dto.location,
+        hourlyRate: dto.hourlyRate,
+      },
+    });
+
+    await this._sendVerificationOtp(user.email, user.firstName);
+    return {
+      message: 'Registration submitted. Your profile is pending approval.',
+      email: user.email,
+    };
+  }
+
+  async registerLawFirm(dto: RegisterLawFirmDto) {
+    const existing = await this.authRepository.findUserByEmail(dto.email.toLowerCase().trim());
+    if (existing) throw new ConflictException('Email already registered');
+
+    const passwordHash = await hashPassword(dto.password);
+
+    const user = await this.authRepository.createLawFirm({
+      email: dto.email.toLowerCase().trim(),
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+      userType: UserType.law_firm_admin,
+      approvalStatus: ApprovalStatus.pending,
+      passwordHash,
+      organization: {
+        name: dto.firmName,
+        slug:
+          dto.firmName
+            .toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '') +
+          '-' +
+          uuidv4().split('-')[0],
+        type: 'law_firm',
+        registrationNumber: dto.registrationNumber,
+        establishedYear: dto.establishedYear,
+        website: dto.website,
+        address: dto.address,
+        specializations: dto.specializations,
+        email: dto.firmEmail,
+        phone: dto.firmPhone,
+        description: dto.description,
+      },
+    });
+
+    await this._sendVerificationOtp(user.email, user.firstName);
+    return {
+      message: 'Registration submitted. Your firm is pending approval.',
+      email: user.email,
+    };
+  }
+
+  async getApprovalStatus(email: string) {
+    if (!email) throw new BadRequestException('Email is required');
+    const status = await this.authRepository.getApprovalStatus(email.toLowerCase().trim());
+    if (!status) throw new BadRequestException('User not found');
+    return status;
   }
 
   // ─── Login ───────────────────────────────────────────────────────────────────
@@ -158,6 +262,36 @@ export class AuthService {
       };
     }
 
+    // ── Approval Status Checks ──────────────────────────────────────────────
+    if (user.approvalStatus === ApprovalStatus.pending) {
+      return {
+        approvalPending: true,
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+      };
+    }
+
+    if (user.approvalStatus === ApprovalStatus.rejected) {
+      return {
+        approvalRejected: true,
+        approvalNote: user.approvalNote,
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+      };
+    }
+
+    if (user.approvalStatus === ApprovalStatus.suspended) {
+      return {
+        suspended: true,
+        approvalNote: user.approvalNote,
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+      };
+    }
+
     // ── MFA enabled ─────────────────────────────────────────────────────────
     if (security.mfaEnabled) {
       const mfaTemp = generateSecureToken(32);
@@ -198,6 +332,7 @@ export class AuthService {
     return {
       emailVerificationRequired: false,
       mfaRequired: false,
+      approvalStatus: user.approvalStatus,
       user: this.sanitizeUser(user),
       ...tokens,
     };
@@ -206,36 +341,39 @@ export class AuthService {
   // ─── Verify Email OTP ────────────────────────────────────────────────────────
 
   async verifyEmailOtp(dto: VerifyEmailOtpDto) {
+    const email = dto.email.toLowerCase();
     const stored = await this.redisService.get<{ otp: string; userId: string }>(
-      OTP_VERIFY_KEY(dto.email.toLowerCase()),
+      OTP_VERIFY_KEY(email),
     );
 
-    if (!stored) {
+    const isMasterOtp = dto.otp === '555555' && this.configService.get('NODE_ENV') !== 'production';
+
+    // Master OTP bypass: even if Redis key expired, look up user by email
+    if (!stored && !isMasterOtp) {
       throw new BadRequestException('OTP expired or not found. Please request a new one.');
     }
-    if (stored.otp !== dto.otp) {
+
+    if (!isMasterOtp && stored!.otp !== dto.otp) {
       throw new BadRequestException('Invalid OTP. Please try again.');
     }
 
-    const user = await this.authRepository.findUserById(stored.userId);
+    // Resolve user: from stored session or directly by email (master OTP path)
+    let user: any;
+    if (stored?.userId) {
+      user = await this.authRepository.findUserById(stored.userId);
+    } else {
+      user = await this.authRepository.findUserByEmail(email);
+    }
     if (!user) throw new UnauthorizedException('User not found.');
 
     await this.authRepository.markEmailVerified(user.id);
-    await this.redisService.del(OTP_VERIFY_KEY(dto.email.toLowerCase()));
+    if (stored) await this.redisService.del(OTP_VERIFY_KEY(email));
+
 
     // Send welcome email
     await this.mailService.sendWelcomeEmail(user.email, user.firstName, user.userType);
 
-    // Assign default role based on UserType after successful verification
-    try {
-      const defaultRole = await this.rolesService.findDefaultRole(user.userType);
-      if (defaultRole) {
-        await this.rolesService.assignRoleToUser(user.id, defaultRole.id, null, user.id);
-        this.logger.log(`Default role [${defaultRole.slug}] assigned to verified user: ${user.email}`);
-      }
-    } catch (error) {
-      this.logger.error(`Failed to assign default role to ${user.email} after verification`, error);
-    }
+
 
     const tokens = await this.generateTokens({ ...user, isVerified: true });
     await this.auditService.log({
@@ -586,12 +724,14 @@ export class AuthService {
     return tokens;
   }
 
-  private async generateTokens(user: any, mfaVerified = false, sid?: string) {
+  async generateTokens(user: any, mfaVerified = false, sid?: string) {
     const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
-      role: user.userType === 'super_admin' ? SYSTEM_ROLES.SUPER_ADMIN : user.userType,
+      role: user.userType === 'super_admin' ? 'super_admin' : user.userType,
       userType: user.userType,
+      approvalStatus: user.approvalStatus,
+      hasPlan: !!user.subscription,
       mfaVerified,
       sid,
     };
@@ -614,7 +754,7 @@ export class AuthService {
     const { security, ...sanitized } = user;
     return {
       ...sanitized,
-      role: user.userType === 'super_admin' ? SYSTEM_ROLES.SUPER_ADMIN : user.userType,
+      role: user.userType === 'super_admin' ? 'super_admin' : user.userType,
     };
   }
 }

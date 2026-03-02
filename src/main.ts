@@ -83,7 +83,7 @@ async function bootstrap() {
       .addTag('Auth', 'Authentication & MFA')
       .addTag('Users', 'User management')
       .addTag('Organizations', 'Organization & team management')
-      .addTag('Professionals', 'Advocate & Detective profiles')
+      .addTag('Professionals', 'Professional & Detective profiles')
       .addTag('Cases', 'Case management')
       .addTag('Roles & Permissions', 'RBAC management')
       .addTag('Subscriptions', 'Billing & plans')

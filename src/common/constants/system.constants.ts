@@ -23,7 +23,7 @@ export const SYSTEM_CONSTANTS = {
 
 export const USER_TYPES = {
   CLIENT: 'client',
-  PROFESSIONAL: 'professional',
+  ADVOCATE: 'advocate',
   SUPER_ADMIN: 'super_admin',
 } as const;
 

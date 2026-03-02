@@ -20,11 +20,11 @@ import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OrgId } from '../../../common/decorators/org-id.decorator';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
-import { Permission } from '../../../common/decorators/permission.decorator';
 import { Audit } from '../../../common/decorators/audit.decorator';
-import { PermissionGuard } from '../../../common/guards/permissions.guard';
-import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
+import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
+import { RequiresPlanAccess } from '../../../common/decorators/plan-access.decorator';
 
 class CreateCaseDto {
   @ApiProperty() @IsString() title: string;
@@ -46,13 +46,13 @@ class AssignProfessionalDto {
 
 @ApiTags('Cases')
 @ApiBearerAuth('accessToken')
-@UseGuards(PermissionGuard)
+@UseGuards(PlanAccessGuard)
+@RequiresPlanAccess({ moduleKey: MODULE_KEYS.CASES })
 @Controller({ path: 'cases', version: '1' })
 export class CasesController {
   constructor(private casesService: CasesService) {}
 
   @Post()
-  @Permission(FEATURE_KEYS.CASES_CREATE)
   @Audit({ action: 'create', module: MODULE_KEYS.CASES })
   @ApiOperation({ summary: 'Create a new case' })
   async create(
@@ -64,7 +64,6 @@ export class CasesController {
   }
 
   @Get()
-  @Permission(FEATURE_KEYS.CASES_READ)
   @ApiOperation({ summary: 'List cases (filter by org, status, type, search)' })
   async findAll(
     @OrgId() orgId: string,
@@ -89,14 +88,12 @@ export class CasesController {
   }
 
   @Get(':id')
-  @Permission(FEATURE_KEYS.CASES_READ)
   @ApiOperation({ summary: 'Get case details' })
   async findOne(@Param('id') id: string) {
     return successResponse(await this.casesService.findById(id));
   }
 
   @Patch(':id')
-  @Permission(FEATURE_KEYS.CASES_UPDATE)
   @Audit({ action: 'update', module: MODULE_KEYS.CASES })
   @ApiOperation({ summary: 'Update case' })
   async update(
@@ -113,7 +110,6 @@ export class CasesController {
 
   @Patch(':id/status')
   @HttpCode(HttpStatus.OK)
-  @Permission(FEATURE_KEYS.CASES_UPDATE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.CASES })
   @ApiOperation({ summary: 'Update case status' })
   async updateStatus(
@@ -128,7 +124,6 @@ export class CasesController {
   }
 
   @Post(':id/assignments')
-  @Permission(FEATURE_KEYS.CASES_ASSIGN)
   @Audit({ action: ACTION_KEYS.ASSIGN, module: MODULE_KEYS.CASES })
   @ApiOperation({ summary: 'Assign a professional to a case' })
   async assign(
@@ -150,14 +145,12 @@ export class CasesController {
   }
 
   @Get(':id/documents')
-  @Permission(FEATURE_KEYS.CASES_READ)
   @ApiOperation({ summary: 'Get case documents' })
   async getDocuments(@Param('id') caseId: string) {
     return successResponse(await this.casesService.getDocuments(caseId));
   }
 
   @Post(':id/documents')
-  @Permission(FEATURE_KEYS.CASES_UPDATE)
   @Audit({ action: ACTION_KEYS.UPLOAD, module: MODULE_KEYS.CASES })
   @ApiOperation({ summary: 'Add document to case' })
   async addDocument(

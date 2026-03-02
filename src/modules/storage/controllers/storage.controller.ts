@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiConsumes, ApiHeader } from '@nestjs/swagger';
 import { FilesInterceptor } from '@nestjs/platform-express';
@@ -25,11 +26,13 @@ import {
 } from '../dto/storage.dto';
 import { CurrentUser } from '../../../common/decorators/current-user.decorator';
 import { OrgId } from '../../../common/decorators/org-id.decorator';
-import { Permission } from '../../../common/decorators/permission.decorator';
 import { Audit } from '../../../common/decorators/audit.decorator';
-import { FEATURE_KEYS } from '../../../common/constants/permissions.constants';
+import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
 import { successResponse } from '../../../common/utils/response.util';
 import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
+import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
+import { RequiresPlanAccess } from '../../../common/decorators/plan-access.decorator';
 
 @ApiTags('Storage')
 @ApiBearerAuth('accessToken')
@@ -38,6 +41,8 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
   required: false,
   description: 'Organization ID (optional – scopes upload to org directory)',
 })
+@UseGuards(PlanAccessGuard)
+@RequiresPlanAccess({ moduleKey: MODULE_KEYS.STORAGE })
 @Controller({ path: 'storage', version: '1' })
 export class StorageController {
   constructor(private readonly storageService: StorageService) {}
@@ -45,8 +50,7 @@ export class StorageController {
   // ─── Directory Management ───────────────────────────────────
 
   @Post('directories')
-  @Permission(FEATURE_KEYS.STORAGE_CREATE)
-  @Audit({ action: 'create', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.STORAGE })
   @ApiOperation({ summary: 'Create a new directory' })
   async createDirectory(
     @CurrentUser() user: JwtPayload,
@@ -58,8 +62,7 @@ export class StorageController {
   }
 
   @Delete('directories/:id')
-  @Permission(FEATURE_KEYS.STORAGE_DELETE)
-  @Audit({ action: 'delete', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.STORAGE })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a directory' })
   async deleteDirectory(@OrgId() orgId: string, @Param('id') id: string) {
@@ -70,7 +73,6 @@ export class StorageController {
   // ─── File Listing ────────────────────────────────────────────
 
   @Get()
-  @Permission(FEATURE_KEYS.STORAGE_READ)
   @ApiOperation({ summary: 'List files and folders at a given path' })
   async listFilesAndFolders(@OrgId() orgId: string, @Query() query: ListFilesQueryDto) {
     const result = await this.storageService.getFilesAndFolders(orgId, query.path ?? '');
@@ -80,8 +82,7 @@ export class StorageController {
   // ─── File Upload ─────────────────────────────────────────────
 
   @Post('upload')
-  @Permission(FEATURE_KEYS.STORAGE_UPLOAD)
-  @Audit({ action: 'upload', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.UPLOAD, module: MODULE_KEYS.STORAGE })
   @ApiOperation({
     summary:
       'Upload files – auto-creates user root dir (email) and org sub-dir when x-org-id header is present',
@@ -106,8 +107,7 @@ export class StorageController {
   // ─── File Move ───────────────────────────────────────────────
 
   @Patch('move')
-  @Permission(FEATURE_KEYS.STORAGE_UPDATE)
-  @Audit({ action: 'update', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.STORAGE })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Move a file to a different directory (S3 copy + delete source)' })
   async moveFile(@OrgId() orgId: string, @Body() dto: MoveFileDto) {
@@ -118,8 +118,7 @@ export class StorageController {
   // ─── File Copy ───────────────────────────────────────────────
 
   @Post('copy')
-  @Permission(FEATURE_KEYS.STORAGE_CREATE)
-  @Audit({ action: 'create', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.STORAGE })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Copy a file to a directory (S3 copy + new DB record, source preserved)',
@@ -132,8 +131,7 @@ export class StorageController {
   // ─── File Delete ─────────────────────────────────────────────
 
   @Delete(':id')
-  @Permission(FEATURE_KEYS.STORAGE_DELETE)
-  @Audit({ action: 'delete', module: 'storage' })
+  @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.STORAGE })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a file (soft + S3 removal)' })
   async deleteFile(@OrgId() orgId: string, @Param('id') id: string) {
@@ -144,7 +142,6 @@ export class StorageController {
   // ─── Signed URL ──────────────────────────────────────────────
 
   @Get(':id/signed-url')
-  @Permission(FEATURE_KEYS.STORAGE_READ)
   @ApiOperation({ summary: 'Get a pre-signed 24-hour download URL for a file' })
   async getSignedUrl(@OrgId() orgId: string, @Param('id') id: string) {
     const url = await this.storageService.getFileSignedUrl(orgId, id);

@@ -18,7 +18,6 @@ import { ChatService } from '../services/chat.service';
 import { WsJwtGuard } from '../../../common/guards/ws-jwt.guard';
 import { AuditService } from '../../audit/services/audit.service';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
-import { ACTION_KEYS } from '../../../common/constants/permissions.constants';
 
 interface AuthenticatedSocket extends Socket {
   userId?: string;

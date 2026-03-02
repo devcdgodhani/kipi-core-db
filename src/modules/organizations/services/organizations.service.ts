@@ -7,7 +7,6 @@ import {
 import { AppType } from '@prisma/client';
 import { OrganizationsRepository } from '../repositories/organizations.repository';
 import { AuditService } from '../../audit/services/audit.service';
-import { RolesPermissionsService } from '../../roles-permissions/services/roles-permissions.service';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
 import { generateSecureToken } from '../../../common/utils/crypto.util';
 
@@ -16,7 +15,6 @@ export class OrganizationsService {
   constructor(
     private orgsRepository: OrganizationsRepository,
     private auditService: AuditService,
-    private rolesService: RolesPermissionsService,
   ) {}
 
   async create(data: any, userId: string) {
@@ -26,14 +24,6 @@ export class OrganizationsService {
       .replace(/[^a-z0-9-]/g, '');
     const org = await this.orgsRepository.create({ ...data, slug, ownerId: userId });
     await this.orgsRepository.addMember(org.id, userId, 'owner');
-
-    // Clone system roles for the new organization
-    try {
-      await this.rolesService.cloneSystemRolesForOrg(org.id, userId);
-    } catch (error) {
-      // Log error but don't fail organization creation
-      console.error(`Failed to clone roles for organization ${org.id}:`, error);
-    }
 
     await this.auditService.log({
       userId,

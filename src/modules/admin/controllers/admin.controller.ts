@@ -1,26 +1,24 @@
 import { Controller, Get, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { PrismaService } from '../../../database/prisma.service';
-import { Roles } from '../../../common/decorators/roles.decorator';
-import { SYSTEM_ROLES } from '../../../common/constants/roles.constants';
 import { successResponse } from '../../../common/utils/response.util';
 import { buildPaginatedResponse, getPaginationParams } from '../../../common/utils/pagination.util';
-import { PermissionGuard } from '../../../common/guards/permissions.guard';
-import { Permission } from '../../../common/decorators/permission.decorator';
 import { Audit } from '../../../common/decorators/audit.decorator';
-import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
+import { RequiresPlanAccess } from '../../../common/decorators/plan-access.decorator';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
+import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
 
 @ApiTags('Admin')
 @ApiBearerAuth('accessToken')
-@Roles(SYSTEM_ROLES.SUPER_ADMIN)
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanAccessGuard)
+@RequiresPlanAccess({ moduleKey: MODULE_KEYS.ADMIN_DASHBOARD })
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   @Get('stats')
-  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'Get platform-wide statistics' })
   async getStats() {
     const [users, organizations, cases, professionals, revenue] = await Promise.all([
@@ -34,13 +32,12 @@ export class AdminController {
       users,
       organizations,
       cases,
-      professionals,
+      professionals: professionals,
       totalRevenue: revenue._sum.amount || 0,
     });
   }
 
   @Get('users')
-  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all platform users' })
   async listUsers(
     @Query('page') page = 1,
@@ -64,7 +61,6 @@ export class AdminController {
   }
 
   @Patch('users/:id/status')
-  @Permission(FEATURE_KEYS.ADMIN_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ADMIN })
   @ApiOperation({ summary: 'Activate or deactivate a user' })
   async toggleUserStatus(@Param('id') id: string, @Body('isActive') isActive: boolean) {
@@ -72,8 +68,27 @@ export class AdminController {
     return successResponse(user, `User ${isActive ? 'activated' : 'deactivated'}`);
   }
 
+  @Patch('users/:id/approval')
+  @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ADMIN })
+  @ApiOperation({ summary: 'Update user approval status' })
+  async updateApprovalStatus(
+    @Param('id') id: string,
+    @Body('status') status: 'approved' | 'rejected' | 'pending' | 'suspended',
+    @Body('note') note?: string,
+  ) {
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: {
+        approvalStatus: status,
+        approvalNote: note,
+        // Auto-activate if approved
+        isActive: status === 'approved' ? true : undefined,
+      },
+    });
+    return successResponse(user, `User application ${status}`);
+  }
+
   @Get('organizations')
-  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List all organizations' })
   async listOrgs(
     @Query('page') page = 1,
@@ -90,7 +105,6 @@ export class AdminController {
         take,
         include: {
           _count: { select: { members: true, cases: true } },
-          subscription: { include: { plan: true } },
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -100,25 +114,23 @@ export class AdminController {
   }
 
   @Get('professionals/pending')
-  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'List professionals pending verification' })
   async getPendingVerifications(@Query('page') page = 1, @Query('limit') limit = 20) {
     const { skip, take } = getPaginationParams({ page: +page, limit: +limit });
     const [items, total] = await Promise.all([
-      this.prisma.professional.findMany({
-        where: { verificationStatus: 'pending' },
+      this.prisma.user.findMany({
+        where: { userType: 'advocate', approvalStatus: 'pending' },
         skip,
         take,
-        include: { user: { select: { id: true, firstName: true, lastName: true, email: true } } },
+        include: { professional: true },
         orderBy: { createdAt: 'asc' },
       }),
-      this.prisma.professional.count({ where: { verificationStatus: 'pending' } }),
+      this.prisma.user.count({ where: { userType: 'advocate', approvalStatus: 'pending' } }),
     ]);
     return successResponse(buildPaginatedResponse(items, total, { page: +page, limit: +limit }));
   }
 
   @Get('revenue')
-  @Permission(FEATURE_KEYS.ADMIN_VIEW)
   @ApiOperation({ summary: 'Get revenue breakdown by year' })
   async getRevenue(@Query('year') year = new Date().getFullYear()) {
     const payments = await this.prisma.payment.findMany({
@@ -128,10 +140,10 @@ export class AdminController {
       },
       select: { amount: true, createdAt: true, currency: true },
     });
-    const monthly: Record<string, number> = {};
+    const monthly: { month: string, amount: number }[] = [];
     payments.forEach((p) => {
       const month = new Date(p.createdAt).toISOString().slice(0, 7);
-      monthly[month] = (monthly[month] || 0) + Number(p.amount);
+      monthly.push({ month, amount: Number(p.amount) })
     });
     return successResponse({
       year,

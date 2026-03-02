@@ -20,9 +20,17 @@ datasource db {
 
 enum UserType {
   client
-  professional
-  organization_admin
+  advocate
+  law_firm_admin
+  admin
   super_admin
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+  suspended
 }
 
 enum ProfessionalType {
@@ -40,7 +48,6 @@ enum VerificationStatus {
 enum OrgType {
   law_firm
   detective_agency
-  solo_practice
 }
 
 enum OrgMemberStatus {
@@ -141,32 +148,35 @@ model User {
   id          String    @id @default(uuid())
   email       String    @unique
   phone       String?  
-  firstName   String
-  lastName    String
-  avatar      String?
-  userType    UserType  @default(client)
-  isActive    Boolean   @default(true)
-  isVerified  Boolean   @default(false)
-  lastLoginAt DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  firstName      String
+  lastName       String
+  avatar         String?
+  userType       UserType       @default(client)
+  approvalStatus ApprovalStatus @default(approved)
+  approvalNote   String?
+  isActive       Boolean        @default(true)
+  isVerified     Boolean        @default(false)
+  lastLoginAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
 
   // Relations
-  security        UserSecurity?
-  sessions        UserSession[]
-  professional    Professional?
-  orgMemberships  OrganizationMember[]
-  rolesAssigned   UserRole[]
-  casesAsClient   Case[]              @relation("ClientCases")
-  caseAssignments CaseAssignment[]
-  caseMessages    CaseMessage[]
-  caseUpdates     CaseUpdate[]
-  notifications   Notification[]
-  auditLogs       AuditLog[]          @relation("AuditUser")
-  payments        Payment[]
-  fileStorages    FileStorage[]
-  fileDirectories FileDirectory[]
+  security         UserSecurity?
+  sessions         UserSession[]
+  professional     Professional?
+  orgMemberships   OrganizationMember[]
+
+  casesAsClient    Case[]               @relation("ClientCases")
+  caseAssignments  CaseAssignment[]
+  caseMessages     CaseMessage[]
+  caseUpdates      CaseUpdate[]
+  notifications    Notification[]
+  auditLogs        AuditLog[]           @relation("AuditUser")
+  payments         Payment[]
+  subscription     Subscription?
+  fileStorages     FileStorage[]
+  fileDirectories  FileDirectory[]
 
   @@index([email])
   @@index([userType])
@@ -220,31 +230,30 @@ model UserSession {
 // ─────────────────────────────────────────────────────────────
 
 model Professional {
-  id                 String             @id @default(uuid())
-  userId             String             @unique
-  type               ProfessionalType
-  barRegistration    String?            // for advocates
-  licenseNumber      String?            // for detectives
-  specializations    String[]           @default([])
-  experienceYears    Int                @default(0)
-  bio                String?            @db.Text
-  hourlyRate         Decimal?           @db.Decimal(10, 2)
-  rating             Decimal            @default(0) @db.Decimal(3, 2)
-  totalReviews       Int                @default(0)
-  verificationStatus VerificationStatus @default(pending)
-  verifiedAt         DateTime?
-  verifiedBy         String?
-  documents          Json?              // AWS S3 keys of verification docs
-  languages          String[]           @default([])
-  location           String?
-  isAvailable        Boolean            @default(true)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  id              String             @id @default(uuid())
+  userId          String             @unique
+  barRegistration String?
+  specializations String[]           @default([])
+  experienceYears Int                @default(0)
+  bio             String?            @db.Text
+  hourlyRate      Decimal?           @db.Decimal(10, 2)
+  rating          Decimal            @default(0) @db.Decimal(3, 2)
+  totalReviews    Int                @default(0)
+  status          ApprovalStatus     @default(pending)
+  verifiedAt      DateTime?
+  verifiedBy      String?
+  documents       Json? // AWS S3 keys of verification docs
+  languages       String[]           @default([])
+  practiceAreas   String[]           @default([])
+  location        String?
+  isAvailable     Boolean            @default(true)
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([type])
-  @@index([verificationStatus])
+  @@index([userId])
+  @@index([status])
   @@index([rating])
   @@map("professionals")
 }
@@ -254,29 +263,31 @@ model Professional {
 // ─────────────────────────────────────────────────────────────
 
 model Organization {
-  id          String    @id @default(uuid())
-  name        String
-  slug        String    @unique
-  type        OrgType
-  description String?   @db.Text
-  logo        String?
-  website     String?
-  email       String?
-  phone       String?
-  address     Json?     // { street, city, state, country, zip }
-  settings    Json?     // org-level settings
-  isActive    Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
+  id                 String    @id @default(uuid())
+  name               String
+  slug               String    @unique
+  type               OrgType
+  description        String?   @db.Text
+  logo               String?
+  website            String?
+  email              String?
+  phone              String?
+  registrationNumber String?
+  establishedYear    Int?
+  address            Json? // { street, city, state, country, zip }
+  specializations    String[]  @default([])
+  settings           Json? // org-level settings
+  isActive           Boolean   @default(true)
+  createdBy          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  deletedAt          DateTime?
 
   // Relations
   members       OrganizationMember[]
   invites       OrganizationInvite[]
   cases         Case[]
-  subscription  Subscription?
-  roles         Role[]
-  payments      Payment[]
+
   auditLogs     AuditLog[]    @relation("AuditOrg")
   fileStorages  FileStorage[]
   fileDirectories FileDirectory[]
@@ -298,7 +309,7 @@ model OrganizationMember {
 
   organization Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userRoles    UserRole[]
+
 
   @@unique([orgId, userId])
   @@index([orgId])
@@ -327,39 +338,20 @@ model OrganizationInvite {
 // RBAC – Roles, Modules, Features, Actions, Permissions
 // ─────────────────────────────────────────────────────────────
 
-model Role {
-  id          String    @id @default(uuid())
-  orgId       String?   // null = system role
-  name        String
-  slug        String
-  description String?
-  isSystem    Boolean   @default(false)
-  isDefault    Boolean   @default(false)
-  targetUserType UserType?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
 
-  organization Organization?    @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  permissions  RolePermission[]
-  userRoles    UserRole[]
-
-  @@unique([orgId, slug])
-  @@index([orgId])
-  @@index([isSystem])
-  @@map("roles")
-}
 
 model Module {
-  id          String   @id @default(uuid())
-  key         String   @unique
-  name        String
-  description String?
-  appType     AppType  @default(MAIN_WEB)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id              String     @id @default(uuid())
+  key             String     @unique
+  name            String
+  description     String?
+  appType         AppType    @default(MAIN_WEB)
+  targetUserTypes UserType[]
+  path            String?
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
 
   features    Feature[]
-  screens     Screen[]
   planModules PlanModule[]
 
   @@index([key])
@@ -367,34 +359,19 @@ model Module {
   @@map("modules")
 }
 
-model Screen {
-  id          String   @id @default(uuid())
-  moduleId    String
-  key         String   @unique
-  name        String
-  description String?
-  path        String?  // Frontend route path for reference
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-
-  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  actions     Action[]
-  permissions RolePermission[]
-
-  @@index([moduleId])
-  @@map("screens")
-}
+// [DELETE] Screen model removed in favor of Feature-Action hierarchy
 
 model Feature {
-  id       String  @id @default(uuid())
-  moduleId String
-  key      String  @unique
-  name     String
-  description String?
-
-  module      Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
-  actions     Action[]
-  permissions RolePermission[]
+  id              String           @id @default(uuid())
+  moduleId        String
+  key             String           @unique
+  name            String
+  description     String?
+  path            String?
+  targetUserTypes UserType[]
+  module          Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  actions         Action[]
+  planFeatures    PlanFeature[]
 
   @@index([moduleId])
   @@map("features")
@@ -402,54 +379,26 @@ model Feature {
 
 model Action {
   id        String @id @default(uuid())
-  screenId  String?
-  featureId String?
+  featureId String
   key       String
   name      String
 
-  screen      Screen?          @relation(fields: [screenId], references: [id], onDelete: Cascade)
-  feature     Feature?         @relation(fields: [featureId], references: [id], onDelete: Cascade)
-  permissions RolePermission[]
+  feature     Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
-  @@unique([screenId, key], name: "screenId_key")
   @@unique([featureId, key], name: "featureId_key")
   @@map("actions")
 }
 
-model RolePermission {
-  id        String  @id @default(uuid())
-  roleId    String
-  screenId  String?
-  featureId String?
-  actionId  String
-  granted   Boolean @default(true)
+model PlanFeature {
+  id        String @id @default(uuid())
+  planId    String
+  featureId String
 
-  role    Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  screen  Screen? @relation(fields: [screenId], references: [id], onDelete: Cascade)
-  feature Feature? @relation(fields: [featureId], references: [id], onDelete: Cascade)
-  action  Action  @relation(fields: [actionId], references: [id], onDelete: Cascade)
+  plan    SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  feature Feature          @relation(fields: [featureId], references: [id], onDelete: Cascade)
 
-  @@unique([roleId, screenId, actionId])
-  @@unique([roleId, featureId, actionId])
-  @@index([roleId])
-  @@map("role_permissions")
-}
-
-model UserRole {
-  id       String  @id @default(uuid())
-  userId   String
-  roleId   String
-  orgId    String?
-  memberId String?
-
-  user   User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role   Role               @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  member OrganizationMember? @relation(fields: [memberId], references: [id])
-
-  @@unique([userId, roleId, orgId])
-  @@index([userId])
-  @@index([roleId])
-  @@map("user_roles")
+  @@unique([planId, featureId])
+  @@map("plan_features")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -457,19 +406,28 @@ model UserRole {
 // ─────────────────────────────────────────────────────────────
 
 model SubscriptionPlan {
-  id              String          @id @default(uuid())
+  id              String     @id @default(uuid())
   name            String
-  slug            String          @unique
-  description     String?         @db.Text
-  price           Decimal         @db.Decimal(10, 2)
-  billingInterval BillingInterval @default(monthly)
-  trialDays       Int             @default(0)
-  isActive        Boolean         @default(true)
-  isPublic        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  slug            String     @unique
+  targetUserType  UserType
+  description     String?    @db.Text
+  monthlyPrice       Decimal    @db.Decimal(10, 2)
+  yearlyPrice        Decimal    @db.Decimal(10, 2)
+  monthlyOfferPrice  Decimal?   @db.Decimal(10, 2)
+  yearlyOfferPrice   Decimal?   @db.Decimal(10, 2)
+  monthlyDiscount    Int?       @default(0)
+  yearlyDiscount     Int?       @default(0)
+  trialDays       Int        @default(0)
+  maxUsers        Int        @default(1)
+  maxCases        Int        @default(10)
+  features        Json       @default("{}")
+  isActive        Boolean    @default(true)
+  isPublic        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   modules       PlanModule[]
+  planFeatures  PlanFeature[]
   limits        PlanLimit[]
   subscriptions Subscription[]
 
@@ -484,7 +442,7 @@ model PlanModule {
   moduleId String
 
   plan   SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-  module Module           @relation(fields: [moduleId], references: [id])
+  module Module           @relation(fields: [moduleId], references: [id], onDelete: Cascade)
 
   @@unique([planId, moduleId])
   @@map("plan_modules")
@@ -503,39 +461,40 @@ model PlanLimit {
 }
 
 model Subscription {
-  id               String             @id @default(uuid())
-  orgId            String             @unique
-  planId           String
-  status           SubscriptionStatus @default(trialing)
+  id                 String             @id @default(uuid())
+  userId             String             @unique
+  planId             String
+  status             SubscriptionStatus @default(trialing)
+  billingInterval    BillingInterval    @default(monthly)
   currentPeriodStart DateTime
   currentPeriodEnd   DateTime
-  trialEndsAt      DateTime?
-  canceledAt       DateTime?
-  cancelReason     String?
-  externalId       String?            // Razorpay subscription ID
-  metadata         Json?
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
+  trialEndsAt        DateTime?
+  canceledAt         DateTime?
+  cancelReason       String?
+  externalId         String? // Razorpay subscription ID
+  metadata           Json?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
 
-  organization Organization     @relation(fields: [orgId], references: [id], onDelete: Cascade)
-  plan         SubscriptionPlan @relation(fields: [planId], references: [id])
-  payments     Payment[]
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan SubscriptionPlan @relation(fields: [planId], references: [id])
 
-  @@index([orgId])
+  payments Payment[]
+
+  @@index([userId])
   @@index([status])
   @@map("subscriptions")
 }
 
 model Payment {
   id             String        @id @default(uuid())
-  orgId          String
   userId         String
   subscriptionId String?
   amount         Decimal       @db.Decimal(10, 2)
   currency       String        @default("INR")
   status         PaymentStatus @default(pending)
-  externalId     String?       // Razorpay payment ID
-  orderId        String?       // Razorpay order ID
+  externalId     String? // Razorpay payment ID
+  orderId        String? // Razorpay order ID
   receipt        String?
   description    String?
   metadata       Json?
@@ -543,11 +502,9 @@ model Payment {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  organization Organization  @relation(fields: [orgId], references: [id])
   user         User          @relation(fields: [userId], references: [id])
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
 
-  @@index([orgId])
   @@index([userId])
   @@index([status])
   @@map("payments")

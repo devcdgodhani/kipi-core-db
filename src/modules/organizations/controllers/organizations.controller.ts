@@ -19,12 +19,13 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
 import { IsString, IsOptional, IsEmail } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { PermissionGuard } from '../../../common/guards/permissions.guard';
-import { Permission } from '../../../common/decorators/permission.decorator';
 import { Audit } from '../../../common/decorators/audit.decorator';
 import { Public } from '../../../common/decorators/public.decorator';
-import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
+import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
+import { RequiresPlanAccess } from '../../../common/decorators/plan-access.decorator';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 
 class CreateOrgDto {
   @ApiProperty() @IsString() name: string;
@@ -41,7 +42,8 @@ class InviteMemberDto {
 
 @ApiTags('Organizations')
 @ApiBearerAuth('accessToken')
-@UseGuards(PermissionGuard)
+@UseGuards(JwtAuthGuard, PlanAccessGuard)
+@RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
 @Controller({ path: 'organizations', version: '1' })
 export class OrganizationsController {
   constructor(private orgsService: OrganizationsService) {}
@@ -62,7 +64,6 @@ export class OrganizationsController {
   }
 
   @Get(':id')
-  @Permission(FEATURE_KEYS.ORG_VIEW)
   @ApiOperation({ summary: 'Get organization details' })
   async findOne(@Param('id') id: string) {
     const result = await this.orgsService.findById(id);
@@ -70,7 +71,6 @@ export class OrganizationsController {
   }
 
   @Patch(':id')
-  @Permission(FEATURE_KEYS.ORG_MANAGE)
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Update organization' })
   async update(
@@ -83,7 +83,6 @@ export class OrganizationsController {
   }
 
   @Get(':id/members')
-  @Permission(FEATURE_KEYS.TEAM_VIEW)
   @ApiOperation({ summary: 'Get organization members' })
   async getMembers(@Param('id') id: string, @Query('page') page = 1, @Query('limit') limit = 20) {
     const result = await this.orgsService.getMembers(id, +page, +limit);
@@ -91,7 +90,6 @@ export class OrganizationsController {
   }
 
   @Post(':id/invite')
-  @Permission(FEATURE_KEYS.TEAM_INVITE)
   @Audit({ action: ACTION_KEYS.INVITE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Invite a member to organization' })
   async invite(
@@ -113,7 +111,6 @@ export class OrganizationsController {
   }
 
   @Delete(':id/members/:userId')
-  @Permission(FEATURE_KEYS.TEAM_REMOVE)
   @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Remove a member from organization' })
   async removeMember(

@@ -14,7 +14,6 @@ export class OrganizationsRepository {
     return this.prisma.organization.findUnique({
       where: { id, deletedAt: null },
       include: {
-        subscription: { include: { plan: true } },
         _count: { select: { members: true, cases: true } },
       },
     });
@@ -30,7 +29,6 @@ export class OrganizationsRepository {
       include: {
         organization: {
           include: {
-            subscription: { include: { plan: true } },
             _count: { select: { members: true } },
           },
         },

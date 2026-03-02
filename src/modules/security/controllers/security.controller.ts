@@ -16,10 +16,10 @@ import { JwtPayload } from '../../auth/interfaces/jwt-payload.interface';
 import { successResponse } from '../../../common/utils/response.util';
 import { IsString } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { PermissionGuard } from '../../../common/guards/permissions.guard';
 import { Audit } from '../../../common/decorators/audit.decorator';
-import { FEATURE_KEYS, ACTION_KEYS } from '../../../common/constants/permissions.constants';
 import { MODULE_KEYS } from '../../../common/constants/modules.constants';
+import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
+import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 
 class DisableMfaDto {
   @ApiProperty({ description: 'Current password for confirmation' }) @IsString() password: string;
@@ -27,7 +27,7 @@ class DisableMfaDto {
 
 @ApiTags('Security')
 @ApiBearerAuth('accessToken')
-@UseGuards(PermissionGuard)
+  @UseGuards(JwtAuthGuard)
 @Controller({ path: 'security', version: '1' })
 export class SecurityController {
   constructor(private securityService: SecurityService) {}

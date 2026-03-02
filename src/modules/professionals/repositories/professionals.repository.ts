@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import { VerificationStatus } from '@prisma/client';
+import { ApprovalStatus } from '@prisma/client';
 
 @Injectable()
 export class ProfessionalsRepository {
@@ -12,7 +12,7 @@ export class ProfessionalsRepository {
       create: { userId, ...data },
       update: data,
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, approvalStatus: true } },
       },
     });
   }
@@ -21,7 +21,7 @@ export class ProfessionalsRepository {
     return this.prisma.professional.findUnique({
       where: { userId },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, approvalStatus: true } },
       },
     });
   }
@@ -30,7 +30,7 @@ export class ProfessionalsRepository {
     return this.prisma.professional.findUnique({
       where: { id },
       include: {
-        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true } },
+        user: { select: { id: true, firstName: true, lastName: true, email: true, avatar: true, approvalStatus: true } },
       },
     });
   }
@@ -38,13 +38,17 @@ export class ProfessionalsRepository {
   async findAll(params: {
     skip?: number;
     take?: number;
-    type?: string;
     specialization?: string;
     city?: string;
   }) {
-    const where: any = { verificationStatus: 'verified', isAvailable: true };
-    if (params.type) where.type = params.type;
-    if (params.city) where.city = { contains: params.city, mode: 'insensitive' };
+    const where: any = {
+      user: {
+        approvalStatus: 'approved',
+        isActive: true,
+        deletedAt: null
+      }
+    };
+    if (params.city) where.location = { contains: params.city, mode: 'insensitive' };
     if (params.specialization) where.specializations = { has: params.specialization };
 
     const [items, total] = await Promise.all([
@@ -57,14 +61,14 @@ export class ProfessionalsRepository {
             select: { id: true, firstName: true, lastName: true, email: true, avatar: true },
           },
         },
-        orderBy: { rating: 'desc' },
+        orderBy: { createdAt: 'desc' },
       }),
       this.prisma.professional.count({ where }),
     ]);
     return { items, total };
   }
 
-  async updateStatus(id: string, verificationStatus: VerificationStatus) {
-    return this.prisma.professional.update({ where: { id }, data: { verificationStatus } });
+  async updateApprovalStatus(userId: string, status: ApprovalStatus) {
+    return this.prisma.user.update({ where: { id: userId }, data: { approvalStatus: status } });
   }
 }
