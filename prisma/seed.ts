@@ -106,6 +106,24 @@ async function main() {
           ],
         },
         {
+          key: 'admin.billing',
+          name: 'Revenue Analytics',
+          path: '/admin/billing',
+          targetUserTypes: [UserType.super_admin],
+          features: [
+            { key: 'billing.analytics', name: 'Analytics', path: '/admin/billing', actions: ['read', 'export'], targetUserTypes: [UserType.super_admin] },
+          ],
+        },
+        {
+          key: 'admin.notifications',
+          name: 'System Logs',
+          path: '/notifications',
+          targetUserTypes: [UserType.super_admin, UserType.admin],
+          features: [
+            { key: 'system.logs', name: 'Logs', path: '/notifications', actions: ['read'], targetUserTypes: [UserType.super_admin, UserType.admin] },
+          ],
+        },
+        {
           key: 'admin.settings',
           name: 'System Settings',
           path: '/admin/settings',

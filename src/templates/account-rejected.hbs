@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Status Update from {{appName}}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background-color: #f0f4f8; color: #1a202c; }
+    .wrapper { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); }
+    .header { background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%); padding: 48px; text-align: center; }
+    .header-logo { font-size: 28px; font-weight: 800; color: #ffffff; letter-spacing: -0.5px; }
+    .header-tagline { color: rgba(255,255,255,0.85); font-size: 15px; margin-top: 8px; }
+    .body { padding: 48px; text-align: center; }
+    .status-icon { font-size: 64px; text-align: center; margin-bottom: 24px; }
+    .greeting { font-size: 24px; font-weight: 700; color: #1a202c; margin-bottom: 12px; }
+    .text { font-size: 15px; color: #4a5568; line-height: 1.7; margin-bottom: 24px; }
+    .reason-box { background: #fff5f5; border-left: 4px solid #e53e3e; border-radius: 0 8px 8px 0; padding: 20px; margin: 24px 0; text-align: left; }
+    .reason-title { font-size: 12px; font-weight: 700; color: #c53030; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+    .reason-text { font-size: 14px; color: #2d3748; line-height: 1.6; }
+    .footer { padding: 24px 48px; background: #f7fafc; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #a0aec0; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <div class="header-logo">⚖️ {{appName}}</div>
+      <div class="header-tagline">Enterprise Legal Case Management Platform</div>
+    </div>
+    <div class="body">
+      <div class="status-icon">⚠️</div>
+      <p class="greeting">Application Update for {{firstName}}</p>
+      <p class="text">
+        Thank you for your interest in joining {{appName}}. After careful review by our administrative team, we regret to inform you that your application to join as a {{userType}} has been declined.
+      </p>
+      
+      {{#if note}}
+      <div class="reason-box">
+        <div class="reason-title">Administrator Note</div>
+        <div class="reason-text">{{note}}</div>
+      </div>
+      {{/if}}
+
+      <p class="text" style="font-size: 14px; text-align: left; background: #f7fafc; padding: 16px; border-radius: 8px;">
+        If you believe this was an error, or if you have since updated your credentials, you may contact our support team to request a secondary review.
+      </p>
+    </div>
+    <div class="footer">
+      <p>© {{year}} {{appName}}. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>

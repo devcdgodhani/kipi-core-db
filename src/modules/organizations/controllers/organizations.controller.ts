@@ -42,13 +42,13 @@ class InviteMemberDto {
 
 @ApiTags('Organizations')
 @ApiBearerAuth('accessToken')
-@UseGuards(JwtAuthGuard, PlanAccessGuard)
-@RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
+  @UseGuards(JwtAuthGuard, PlanAccessGuard)
 @Controller({ path: 'organizations', version: '1' })
 export class OrganizationsController {
   constructor(private orgsService: OrganizationsService) {}
 
   @Post()
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @Audit({ action: ACTION_KEYS.CREATE, module: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Create a new organization' })
   async create(@Body() dto: CreateOrgDto, @CurrentUser() user: JwtPayload) {
@@ -64,6 +64,7 @@ export class OrganizationsController {
   }
 
   @Get(':id')
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Get organization details' })
   async findOne(@Param('id') id: string) {
     const result = await this.orgsService.findById(id);
@@ -71,6 +72,7 @@ export class OrganizationsController {
   }
 
   @Patch(':id')
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @Audit({ action: ACTION_KEYS.UPDATE, module: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Update organization' })
   async update(
@@ -83,6 +85,7 @@ export class OrganizationsController {
   }
 
   @Get(':id/members')
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @ApiOperation({ summary: 'Get organization members' })
   async getMembers(@Param('id') id: string, @Query('page') page = 1, @Query('limit') limit = 20) {
     const result = await this.orgsService.getMembers(id, +page, +limit);
@@ -90,6 +93,7 @@ export class OrganizationsController {
   }
 
   @Post(':id/invite')
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @Audit({ action: ACTION_KEYS.INVITE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Invite a member to organization' })
   async invite(
@@ -111,6 +115,7 @@ export class OrganizationsController {
   }
 
   @Delete(':id/members/:userId')
+  @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ORGANIZATIONS })
   @Audit({ action: ACTION_KEYS.DELETE, module: MODULE_KEYS.TEAM })
   @ApiOperation({ summary: 'Remove a member from organization' })
   async removeMember(

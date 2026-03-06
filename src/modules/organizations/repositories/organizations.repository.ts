@@ -24,7 +24,7 @@ export class OrganizationsRepository {
   }
 
   async findByUser(userId: string) {
-    return this.prisma.organizationMember.findMany({
+    const members = await this.prisma.organizationMember.findMany({
       where: { userId, status: 'active' },
       include: {
         organization: {
@@ -34,6 +34,8 @@ export class OrganizationsRepository {
         },
       },
     });
+    // The frontend expects an array of Organizations, not OrganizationMembers
+    return members.map(m => m.organization);
   }
 
   async update(id: string, data: Prisma.OrganizationUpdateInput) {

@@ -9,6 +9,7 @@ import { MODULE_KEYS } from '../../../common/constants/modules.constants';
 import { ACTION_KEYS } from '../../../common/constants/action-keys.constants';
 import { JwtAuthGuard } from '../../../common/guards/jwt-auth.guard';
 import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
+import { MailService } from '../../mail/services/mail.service';
 
 @ApiTags('Admin')
 @ApiBearerAuth('accessToken')
@@ -16,7 +17,10 @@ import { PlanAccessGuard } from '../../../common/guards/plan-access.guard';
 @RequiresPlanAccess({ moduleKey: MODULE_KEYS.ADMIN_DASHBOARD })
 @Controller({ path: 'admin', version: '1' })
 export class AdminController {
-  constructor(private prisma: PrismaService) { }
+  constructor(
+    private prisma: PrismaService,
+    private mailService: MailService,
+  ) { }
 
   @Get('stats')
   @ApiOperation({ summary: 'Get platform-wide statistics' })
@@ -85,6 +89,15 @@ export class AdminController {
         isActive: status === 'approved' ? true : undefined,
       },
     });
+
+    if (status === 'approved') {
+      await this.mailService.sendWelcomeEmail(user.email, user.firstName, user.userType);
+    } else if (status === 'rejected') {
+      await this.mailService.sendAccountRejectedEmail(user.email, user.firstName, user.userType, note);
+    } else if (status === 'suspended') {
+      await this.mailService.sendAccountSuspendedEmail(user.email, user.firstName, note);
+    }
+
     return successResponse(user, `User application ${status}`);
   }
 

@@ -151,4 +151,26 @@ export class MailService {
       context: { firstName, userType, appName, appUrl, year: new Date().getFullYear() },
     });
   }
+
+  async sendAccountRejectedEmail(to: string, firstName: string, userType: string, note?: string): Promise<void> {
+    const appName = this.configService.get<string>('mail.appName', 'JusticeLynk');
+    const appUrl = this.configService.get<string>('mail.appUrl', 'http://localhost:3000');
+    await this.sendMail({
+      to,
+      subject: `Application Update from ${appName}`,
+      template: 'account-rejected',
+      context: { firstName, userType, note, appName, appUrl, year: new Date().getFullYear() },
+    });
+  }
+
+  async sendAccountSuspendedEmail(to: string, firstName: string, note?: string): Promise<void> {
+    const appName = this.configService.get<string>('mail.appName', 'JusticeLynk');
+    const appUrl = this.configService.get<string>('mail.appUrl', 'http://localhost:3000');
+    await this.sendMail({
+      to,
+      subject: `Action Required: Account Suspended — ${appName}`,
+      template: 'account-suspended',
+      context: { firstName, note, appName, appUrl, year: new Date().getFullYear() },
+    });
+  }
 }

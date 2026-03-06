@@ -1,5 +1,6 @@
 export const ACTION_KEYS = {
   CREATE: 'create',
+  READ: 'read',
   UPDATE: 'update',
   DELETE: 'delete',
   VIEW: 'view',
@@ -7,4 +8,14 @@ export const ACTION_KEYS = {
   UPLOAD: 'upload',
   DOWNLOAD: 'download',
   INVITE: 'invite',
+  REMOVE: 'remove',
+  EXPORT: 'export',
+  SUSPEND: 'suspend',
+  UNSUSPEND: 'unsuspend',
+  APPROVE: 'approve',
+  REJECT: 'reject',
+  VERIFY: 'verify',
+  CLOSE: 'close',
+  SEND: 'send',
+  HIRE: 'hire',
 } as const;

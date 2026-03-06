@@ -3,7 +3,9 @@ export type MailTemplate =
   | 'login-otp'
   | 'forgot-password'
   | 'password-changed'
-  | 'welcome';
+  | 'welcome'
+  | 'account-rejected'
+  | 'account-suspended';
 
 export interface SendMailOptions {
   to: string;
@@ -46,6 +48,15 @@ export interface PasswordChangedContext {
 export interface WelcomeContext {
   firstName: string;
   userType: string;
+  appName: string;
+  appUrl: string;
+  year: number;
+}
+
+export interface AccountStatusContext {
+  firstName: string;
+  userType?: string;
+  note?: string;
   appName: string;
   appUrl: string;
   year: number;
